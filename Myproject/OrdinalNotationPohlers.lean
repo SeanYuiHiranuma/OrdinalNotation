@@ -2,29 +2,33 @@ import Mathlib
 /-
 We formalize the ordinal notations that correspond to ordinals below epsilon 0.
 -/
+
+
+
 -- ORDINAL TERMS
 /-
 Pohler defines |·|:OT → On by
 (i) 0 ∈ OT with |0| = 0
 (ii) a_1,...,a_n ∈ OT ∧ |a_1| ≥ ... ≥ |a_n| → <a_1,...,a_n> ∈ OT and
                                               |<a_1,...,a_n>|:=ω^|a_1|+...+ω^|a_n|
-Instead of defining the constructer simply as List OT → OT, we do (OT → List OT) → OT.
-This takes care of OT.cnf[] which repeats OT.zero. We will need a validity check for that.
-The first OT term represents the
-head of the OT list (a_1).
+To represent this, we define a constructor cnf : List OT → OT. cnf [] represents
+zero.
 -/
 inductive OT where
-  | zero : OT
-  | cnf : OT → List OT → OT
+  | cnf : List OT → OT
 
 namespace OT
 -- Define some introductory values
+-- 0
+def zero : OT := cnf []
 -- 1 (ω^0)
-def one : OT := cnf zero []
+def one : OT := cnf [zero]
 -- 2 (ω^0 + ω^0)
-def two : OT := cnf zero [zero]
+def two : OT := cnf [zero, zero]
 -- ω
-def omegaOT := cnf one []
+def omegaOT := cnf [one]
+
+
 
 -- COMPARISON
 /-
@@ -32,199 +36,174 @@ To formalize our own ordinal notations, we define our own synctactic definition 
 Pohler defines the comparison of ordinal terms by mapping each ordinal term to an ordinal
 and using the comparison of ordinals. Here, we define the comparison of ordinal terms
 lexiographically:
-          a ≺ b iff (i) a = 0 and b ≠ 0
-                    (ii) given a = a_head :: a_tail and b = b_head :: b_tail, a_head ≺ b_head
-                    (iii) given a = h :: a_tail and b = h :: b_tail, a_tail ≺ b_tail
+        Given a = cnf [a_1,...,a_n] and b = cnf [b_1,...,b_m], a < b iff
+        (1) a_1 < b_1, or
+        (2) a_1 = b_1 and a_2 < b_2, or
+        ...
+        (i) a_1 = b_1, ..., a_i-1 = b_i-1 and a_i < b_i
+        ...
 -/
 mutual
 inductive lt : OT → OT → Prop where
-  | zero_cnf {a : OT} {ar : List OT}  : lt zero (cnf a ar)
-  | head_cnf {a b : OT} {ar br : List OT} : lt a b → lt (cnf a ar) (cnf b br)
-  | tail_cnf {a : OT} {ar br : List OT} : lt_list ar br → lt (cnf a ar) (cnf a br)
+  | cnf_lt {xs ys : List OT} : lt_list xs ys → lt (cnf xs) (cnf ys)
 inductive lt_list : List OT → List OT → Prop where
-  | nil_cons {a : OT} {ar: List OT} : lt_list [] (a :: ar)
-  | cons_head {a b : OT} {ar br : List OT} : lt a b → lt_list (a :: ar) (b :: br)
-  | cons_tail {a : OT} {ar br : List OT} : lt_list ar br → lt_list (a :: ar) (a :: br)
+  | nil_cons {x : OT} {xs : List OT} : lt_list [] (x :: xs)
+  | head_cons {x y : OT} {xs ys : List OT} : lt x y → lt_list (x :: xs) (y :: ys)
+  | tail_cons {x : OT} {xs ys : List OT} : lt_list xs ys → lt_list (x :: xs) (x :: ys)
 end
-infix:50 " ≺ " => lt
--- 0 ≺ 1 (zero ≺ [zero])
+infix:50 " ≺ " => lt -- Denote lt as ≺
+-- zero ≺ one
 example : zero ≺ one := by
+  unfold zero
   unfold one
-  exact lt.zero_cnf
--- 1 ≺ 2 ([zero] ≺ [zero, zero])
+  exact lt.cnf_lt (lt_list.nil_cons)
+-- one ≺ two
 example : one ≺ two := by
-  unfold two
-  unfold one
-  exact lt.tail_cnf lt_list.nil_cons
--- 1 ≺ omegaOT ([zero] ≺ [one])
+  unfold two one zero
+  exact lt.cnf_lt (lt_list.tail_cons (lt_list.nil_cons))
+-- one ≺ omegaOT
 example : one ≺ omegaOT := by
-  unfold omegaOT
-  unfold one
-  exact lt.head_cnf lt.zero_cnf
+  unfold omegaOT one zero
+  exact lt.cnf_lt (lt_list.head_cons (lt.cnf_lt (lt_list.nil_cons)))
 
--- VALIDITY
+def leq (a b : OT) : Prop := a ≺ b ∨ a = b
+infix:50 " ≼ " => leq
+
+
+
+-- NORMALITY
 /-
-In out constructor, we allow forms of non CNFs. say we have
-            ω^a_1 + ω^a_2 + ω^a_3 + ...
-We must have a_1 ≥ a_2 ≥ a_3 ≥ .... We take care of that here.
+Cantor nomral forms < ε₀ must have their exponents decreasing
 -/
--- Less than or equal to
-def le (o1 o2 : OT) : Prop :=
-  lt o1 o2 ∨ o1 = o2
-infix:50 " ≼ " => le
--- Valid OT and OT list
 mutual
-inductive validOT : OT → Prop where
-  | zero : validOT zero
-  | cnf {a : OT} {ar : List OT} : validOTList (a :: ar) → validOT (cnf a ar)
-inductive validOTList : List OT → Prop where
-  | nil : validOTList []
-  | singleton {a : OT} : validOT a → validOTList [a]
-  | cons {a b : OT} {ar : List OT} : validOT a → b ≼ a → validOTList (b :: ar)
-                                                     → validOTList (a :: b :: ar)
+inductive normal : OT → Prop where
+  | cnf {xs : List OT} : normalList xs → normal (cnf xs)
+inductive normalList : List OT → Prop where
+  | nil : normalList []
+  | singleton {x : OT} : normal x → normalList [x]
+  | cons {x y : OT} {xs : List OT} : normal x → normalList (y :: xs) → y ≼ x
+                                              → normalList (x :: y :: xs)
 end
--- 0 is valid
-example : validOT zero := by
-  exact validOT.zero
--- 1 is valid (1 ≃ cnf zero [] = [zero])
-example : validOT one := by
-  unfold one
-  exact validOT.cnf (validOTList.singleton validOT.zero)
--- 2 is valid (2 = [zero, zero])
-example : validOT two := by
-  unfold two
-  exact validOT.cnf (validOTList.cons (validOT.zero) (by
-        right
-        rfl)
-        (validOTList.singleton validOT.zero))
--- omegaOT is valid (omegaOT = [one])
-example : validOT omegaOT := by
-  unfold omegaOT
-  exact validOT.cnf
-    (validOTList.singleton
-      (by
-        unfold one
-        exact validOT.cnf (validOTList.singleton validOT.zero)))
+example : normal zero := by
+  unfold zero
+  exact normal.cnf (normalList.nil)
+example : normal one := by
+  unfold one zero
+  exact normal.cnf (normalList.singleton (normal.cnf (normalList.nil)))
+example : normal two := by
+  unfold two zero
+  exact normal.cnf
+    (normalList.cons
+      (normal.cnf normalList.nil)
+      (normalList.singleton (normal.cnf normalList.nil))
+      (by right; rfl))
+example : normal omegaOT := by
+  unfold omegaOT one zero
+  exact normal.cnf
+    (normalList.singleton
+      (normal.cnf
+        (normalList.singleton
+          (normal.cnf normalList.nil))))
 
--- TRICHOTOMY
+
+
+-- TRICHOTOMY / TOTALITY (LINEARTY)
 /-
-We want to recursively prove that trichotomy is satisfied by our defined comparison
-relation. In doing so, we must assure the recursion ends and we do so by measuring the
-complexity of an OT. By complexity, we mean, specifically, the number of constructors
-involved.
+When we attempt to assign semantics to our ordinal notation, we must consider that they are
+linearly ordered and well-founded. In doing so, we first show trichotomy of our defined universe,
+that is,
+              Given a,b : OT, either a ≺ b, a = b, or b ≺ a
+We are omitting the normal condition as the cnf definition still satisfies trichotomy.
 -/
+-- Trichotomy
 mutual
-/-
-We explain what we exactly we want to measure with the following examples.
-ex1. one
-one = cnf zero [] = [zero]. The number 0f constructors is simply 2, which are zero and [].
-Applying the following definitions,
-  sizeOT(one) = sizeOT(cnf zero []) = sizeOT(zero)+sizeOTList([])+1=2
-ex2. two
-two = cnf zero [zero] = zero :: zero :: []. So, it has four constructors (cnf, zero, ::, zero).
-Plugging it in,
-  sizeOT(two) = sizeOT(cnf zero [zero]) = sizeOT(zero) + sizeOTList(zero :: []) + 1
-              = 1 + (sizeOT(zero) + sizeOTList([]) + 1) + 1
-              = 4
-ex3. omegaOT
-omegaOT = cnf one [] = cnf (cnf zero []) [], so it must have three constructors. Checking,
-  sizeOT(omegaOT) = sizeOT(one) + sizeOTList([]) + 1 = 3
--/
-def sizeOT : OT → Nat
-  | zero => 1
-  | cnf a ar => sizeOT a + sizeOTList ar + 1
-def sizeOTList : List OT → Nat
-  | [] => 0
-  | a :: ar => sizeOT a + sizeOTList ar + 1
-end
-#eval sizeOT (zero)
-#eval sizeOT (one)
-#eval sizeOT (two)
-#eval sizeOT (omegaOT)
-
-mutual
-
 theorem lt_trichotomy : ∀ a b : OT, a ≺ b ∨ a = b ∨ b ≺ a
-  | zero, zero => by right; left; rfl
-  | zero, cnf b br => by left; exact lt.zero_cnf
-  | cnf a ar, zero => by right; right; exact lt.zero_cnf
-  | cnf a ar, cnf b br => by
-      have h := lt_trichotomy a b
+  | cnf xs, cnf ys => by
+      have h := ltList_trichotomy xs ys -- lt_list xs ys ∨ xs = ys ∨ lt_list ys xs
       cases h with
-      | inl hab => left; exact lt.head_cnf hab
-      | inr h =>
-          cases h with
+      -- assume lt_list xs ys is true
+      | inl hlt => left; exact lt.cnf_lt hlt
+      -- assume ys ∨ xs = ys ∨ lt_list ys xs is true
+      | inr h => cases h with
+                 -- assume xs = ys is true
+                 | inl heq => right; left; cases heq; rfl
+                 -- assume lt_list ys xs is true
+                 | inr hgt => right; right; exact lt.cnf_lt hgt
+theorem ltList_trichotomy : ∀ xs ys : List OT, lt_list xs ys ∨ xs = ys ∨ lt_list ys xs
+  | [], [] => by right; left; rfl
+  | [], y :: ys => by left; exact lt_list.nil_cons
+  | x :: xs, [] => by right; right; exact lt_list.nil_cons
+  | x :: xs, y :: ys => by
+      have hhead := lt_trichotomy x y
+      cases hhead with
+      -- case of x ≺ y is true
+      | inl hxy => left; exact lt_list.head_cons hxy
+      -- case of x = y ∨ y ≺ x is true
+      | inr h => cases h with
+          -- case of x = y
           | inl heq =>
-              subst b
-              have hlist := lt_list_trichotomy ar br
-              cases hlist with
-              | inl harbr => left; exact lt.tail_cnf harbr
-              | inr h2 =>
-                  cases h2 with
-                  | inl heqList => subst br; right; left; rfl
-                  | inr hbrar => right; right; exact lt.tail_cnf hbrar
-          | inr hba => right; right; exact lt.head_cnf hba
-
-
-theorem lt_list_trichotomy : ∀ xs ys : List OT, lt_list xs ys ∨ xs = ys ∨ lt_list ys xs
-  | [], [] => by
-      right
-      left
-      rfl
-
-  | [], b :: br => by
-      left
-      exact lt_list.nil_cons
-
-  | a :: ar, [] => by
-      right
-      right
-      exact lt_list.nil_cons
-
-  | a :: ar, b :: br => by
-      have h := lt_trichotomy a b
-      cases h with
-      | inl hab =>
-          left
-          exact lt_list.cons_head hab
-
-      | inr h =>
-          cases h with
-          | inl heq =>
-              subst b
-              have htail := lt_list_trichotomy ar br
+              subst y
+              have htail := ltList_trichotomy xs ys
               cases htail with
-              | inl harbr =>
-                  left
-                  exact lt_list.cons_tail harbr
-
+              -- lt_list xs ys
+              | inl hxsys => left; exact lt_list.tail_cons hxsys
+              -- xs = ys ∨ lt_list ys xs
               | inr h2 =>
                   cases h2 with
-                  | inl heqList =>
-                      subst br
-                      right
-                      left
-                      rfl
-
-                  | inr hbrar =>
-                      right
-                      right
-                      exact lt_list.cons_tail hbrar
-
-          | inr hba =>
-              right
-              right
-              exact lt_list.cons_head hba
-
+                  -- xs = ys
+                  | inl hxsEq => subst ys; right; left; rfl
+                  | inr hysxs => right; right; exact lt_list.tail_cons hysxs
+          | inr hyx => right; right; exact lt_list.head_cons hyx
 end
+-- Totatlity
+theorem lq_total (a b : OT) : a ≼ b ∨ b ≼ a := by
+  have h := lt_trichotomy a b
+  cases h with
+  | inl hab => left; left; exact hab
+  | inr rest => cases rest with
+              | inl heq => left; right; exact heq
+              | inr hba => right; left; exact hba
+
+
+
+-- LINEAR ORDERING
+/-
+Linear ordering has a couple of conditions. One is linearity as we have just proven. We also must
+prove irreflexivity, assymetry, and transitivity.
+-/
+-- Irreflexivity
+mutual
+theorem lt_irfl : ∀ a : OT, ¬ a ≺ a
+  | cnf xs => by intro h
+                 cases h with
+                 | cnf_lt hlist => exact lt_list_irfl xs hlist
+theorem lt_list_irfl : ∀ xs : List OT, ¬ lt_list xs xs
+  | [] => by
+          intro h
+          cases h
+  | x :: xs => by intro h
+                  cases h with
+                  | head_cons hxy => exact lt_irfl x hxy
+                  | tail_cons htail => exact lt_list_irfl xs htail
+end
+-- Transitivity
+mutual
+theorem lt_trans : ∀ {a b c :OT}, a ≺ b → b ≺ c → a ≺ c
+  | cnf xs, cnf ys, cnf zs, lt.cnf_lt hxy, lt.cnf_lt hyz => lt.cnf_lt (lt_list_trans hxy hyz)
+theorem lt_list_trans : ∀ {xs ys zs : List OT}, lt_list xs ys → lt_list ys zs → lt_list xs zs
+  | _, _, _, lt_list.nil_cons, hyz => by cases hyz with
+                                        | head_cons h => exact lt_list.nil_cons
+                                        | tail_cons h => exact lt_list.nil_cons
+  | _, _, _, head_cons hxy, hyz => by cases hyz with
+                                        | head_cons hyz => exact lt_list.head_cons (lt_trans hxy hyz)
+                                        | tail_cons hyz => exact lt_list.head_cons hxy
+  | _, _, _, .tail_cons hxy, hyz => by
+      cases hyz with
+      | head_cons hyz =>
+          exact lt_list.head_cons hyz
+      | tail_cons hyz =>
+          exact lt_list.tail_cons (lt_list_trans hxy hyz)
+end
+
 
 end OT
-
-
-
-/-
-git status
-git add .
-git commit -m "New"
-git push
--/

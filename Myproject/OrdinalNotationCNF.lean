@@ -14,7 +14,7 @@ open CNF
 /-
 zero to make it to mean 0
 cons a b to make it to mean ω^a+b
-* we want the exponents to be in decreasing order
+we want the exponents to be in decreasing order
 -/
 
 def one : CNF := cons zero zero --0
@@ -205,5 +205,6 @@ theorem leAntisymm (a b : CNF) : le a b → le b a → a = b := by
 /-
 Next is well foundedness
 -/
+
 
 end CNF
