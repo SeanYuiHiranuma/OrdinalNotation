@@ -105,8 +105,6 @@ example : normal omegaOT := by
         (normalList.singleton
           (normal.cnf normalList.nil))))
 
-
-
 -- TRICHOTOMY / TOTALITY (LINEARTY)
 /-
 When we attempt to assign semantics to our ordinal notation, we must consider that they are
@@ -156,7 +154,7 @@ theorem ltList_trichotomy : ∀ xs ys : List OT, lt_list xs ys ∨ xs = ys ∨ l
           | inr hyx => right; right; exact lt_list.head_cons hyx
 end
 -- Totatlity
-theorem lq_total (a b : OT) : a ≼ b ∨ b ≼ a := by
+theorem leq_total (a b : OT) : a ≼ b ∨ b ≼ a := by
   have h := lt_trichotomy a b
   cases h with
   | inl hab => left; left; exact hab
@@ -189,21 +187,94 @@ end
 -- Transitivity
 mutual
 theorem lt_trans : ∀ {a b c :OT}, a ≺ b → b ≺ c → a ≺ c
-  | cnf xs, cnf ys, cnf zs, lt.cnf_lt hxy, lt.cnf_lt hyz => lt.cnf_lt (lt_list_trans hxy hyz)
+  | _, _, _, lt.cnf_lt hxy, lt.cnf_lt hyz => lt.cnf_lt (lt_list_trans hxy hyz)
 theorem lt_list_trans : ∀ {xs ys zs : List OT}, lt_list xs ys → lt_list ys zs → lt_list xs zs
   | _, _, _, lt_list.nil_cons, hyz => by cases hyz with
-                                        | head_cons h => exact lt_list.nil_cons
-                                        | tail_cons h => exact lt_list.nil_cons
-  | _, _, _, head_cons hxy, hyz => by cases hyz with
-                                        | head_cons hyz => exact lt_list.head_cons (lt_trans hxy hyz)
-                                        | tail_cons hyz => exact lt_list.head_cons hxy
-  | _, _, _, .tail_cons hxy, hyz => by
+                                      | head_cons h => exact lt_list.nil_cons
+                                      | tail_cons h => exact lt_list.nil_cons
+  | _, _, _, lt_list.head_cons hxy, hyz => by cases hyz with
+                                      | head_cons hyz => exact lt_list.head_cons (lt_trans hxy hyz)
+                                      | tail_cons hyz => exact lt_list.head_cons hxy
+  | _, _, _, lt_list.tail_cons hxy, hyz => by
       cases hyz with
       | head_cons hyz =>
           exact lt_list.head_cons hyz
       | tail_cons hyz =>
           exact lt_list.tail_cons (lt_list_trans hxy hyz)
 end
+-- Asymmetry
+theorem lt_asym {a b : OT} (hab : a ≺ b) : ¬ b ≺ a := by
+  intro hba
+  exact lt_irfl a (lt_trans hab hba)
+-- Antisymmetry
+theorem leq_antisym {a b : OT} (hab : a ≼ b) (hba : b ≼ a) : a = b := by
+  cases hab with
+    | inl hlt => cases hba with
+                  | inl hgt => exact False.elim (lt_irfl a (lt_trans hlt hgt))
+                  | inr heq => exact heq.symm
+    | inr heq => exact heq
+/-
+This concludes the proof of linear ordering of OT
+-/
+
+
+
+-- CANTOR NORMAL FORM
+/-
+As of now, the defined cnf representation includes the case where the exponents are not
+necessarily in decreasing order. We formalize that here. We also tweak the previous
+definitions and theorems to the case specific to cnf.
+-/
+def cnfOT : Type := {a : OT // normal a}
+
+-- Comparison
+def cnf_lt (a b : cnfOT) : Prop := a.1 ≺ b.1
+infix:50 "≺ₙ" => cnf_lt
+def cnf_leq (a b : cnfOT) : Prop := a.1 ≼ b.1
+infix:50 "≼ₙ" => cnf_leq
+
+-- Trichotomy
+theorem cnf_lt_trichotomy (a b : cnfOT) : a ≺ₙ b ∨ a = b ∨ b ≺ₙ a := by
+  have h := lt_trichotomy a.1 b.1
+  cases h with
+    -- Assume a.1 ≺ b.1 it true
+    | inl hab => left; exact hab
+    -- Assume a.1 = b.1 ∨ b.1 ≺ a.1 is true
+    | inr h => cases h with
+                | inl heq => right; left; cases a; cases b; simp at heq; simp [heq]
+                | inr hba => right; right; exact hba
+
+-- Total
+theorem cnf_leq_total (a b : cnfOT) : a ≼ₙ b ∨ b ≼ₙ a := by
+  have h := cnf_lt_trichotomy a b
+  cases h with
+    | inl hab => left; left; exact hab
+    | inr hba => cases hba with
+                  | inl h1 => left; right; exact congrArg Subtype.val h1
+                  | inr h2 => right; left; exact h2
+
+-- Irreflexive
+theorem cnf_lt_irfl (a : cnfOT) : ¬ a ≺ₙ a := by
+  intro h
+  exact lt_irfl a.1 h
+-- Transitive
+theorem cnf_lt_trans {a b c : cnfOT} : a ≺ₙ b → b ≺ₙ c → a ≺ₙ c := by
+  intro hab hbc
+  exact lt_trans hab hbc
+-- Asymmetry
+theorem cnf_lt_asym {a b : cnfOT} (hab : a≺ₙb) : ¬ b ≺ₙ a := by
+  intro h
+  exact lt_asym hab h
+-- Antisymmetry
+theorem cnf_leq_antisym {a b : cnfOT} (hab : a≼ₙb) (hba : b≼ₙa) : a = b := by
+  apply Subtype.ext
+  exact leq_antisym hab hba
+/-
+This concludes the proof of linear ordering of cnfOT
+-/
+
+
+
 
 
 end OT
