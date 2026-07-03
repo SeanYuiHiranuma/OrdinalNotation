@@ -321,4 +321,48 @@ variable (ha : |a| < δ) (hb : |b| < δ)
 #check my_lemma a b δ h₀ h₁
 #check my_lemma a b δ h₀ h₁ ha hb
 
+def predRel (m n : Nat) : Prop := m + 1 = n
+#check predRel 2 3
+theorem zeroIsAccessible : Acc predRel 0 := by
+  apply Acc.intro -- goal becomes for all b with predRel b 0, b is accessible
+  intro b hb -- take arbitrary b and assume predRel b 0
+  unfold predRel at hb
+  omega
+theorem oneIsAccessible : Acc predRel 1 := by
+  apply Acc.intro
+  intro b hb -- hb = predRec b 1
+  unfold predRel at hb -- hb = (b +1 = 1)
+  have hb0 : b = 0 := by omega
+  subst b
+  exact zeroIsAccessible
+theorem nIsAccessible : ∀ n : Nat, Acc predRel n := by
+  intro n
+  induction n with
+    | zero => apply Acc.intro
+              intro b hb -- predRel b 0
+              unfold predRel at hb -- b + 1 = 0
+              omega
+    | succ n ih => apply Acc.intro
+                   intro b hb -- pred b n+1
+                   unfold predRel at hb -- b + 1 = n+1
+                   have hbn : b = n := by omega
+                   subst b
+                   exact ih
+/-
+"WellFounded r" means every element is acessible with respect to r. (∀ a, Acc r a)
+-/
+theorem predRel_wf : WellFounded predRel := by
+  constructor -- changes goal to ∀ n, Acc predRel n
+  intro n
+  induction n with
+  | zero => exact zeroIsAccessible
+  | succ n ih => apply Acc.intro
+                 intro b hb
+                 unfold predRel at hb
+                 have hb_eq : b = n := by omega
+                 subst b
+                 exact ih
+
+
+
 end
