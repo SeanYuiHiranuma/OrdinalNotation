@@ -274,7 +274,100 @@ This concludes the proof of linear ordering of cnfOT
 -/
 
 
+-- WELL_FOUNDEDNESS
+#check Acc
+#check Acc.intro
+#check WellFounded
+
+/-
+LEAN formalizes the concept of Well-Foundedness with the use of accessibility. "Acc lt a" will mean
+every b below a is accessible. Intuitively, this will mean there are no infinite descending chain
+starting from b. Induction seems to be the natural tool to prove this but the problem is limit
+ordinals where we cannot define an immediate successor (ex. ω). Specifically, the structural
+induction LEAN provides runs into a problem. For example, omegaOT has subterms one and zero. but
+four has zero, zero, zero, zero which is structurally more complex but should still be "below"
+omegaOT. This contradiction can be solve by the use of list_lt which lines up the OTs lexico-
+graphically.
+-/
+-- List of cnfOT
+def cnfOTList : Type := {xs : List OT // normalList xs}
+def cnfOTList_lt (xs ys : cnfOTList) : Prop := lt_list xs.1 ys.1
+/-
+We want to prove that given any a : cnfOT, a is accessible with respect to ≼ₙ. That is, every
+b ≼ₙ a is accessible. b ≼ₙ a means b.1 ≼ a.1, which is
+                  cnf (some OT list for b) ≼ cnf (some OT list for a)
+This relation, recall, is defined lexicographically, syntactically. This will mean, if
+a is accessible, then every normal list whose elemetns are ≤ a is accessible. I emphasize
+we consider the normal case and not the general OT.
+-/
+-- cnfList []
+theorem cnfList_nil_acc : Acc cnfOTList_lt ⟨[], normalList.nil⟩ := by
+  apply Acc.intro --change goal to ∀ b, cnfList_lt b ⟨[], normalList.nil⟩, Acc cnfList_lt b
+  intro b hb
+  unfold cnfOTList_lt at hb -- lt_list b.1 []
+  rcases b with ⟨xs, hxs⟩
+  cases hb
+/-
+So, when we focus on the list elements, as previously explained, a normal CNF lists are
+decreasing. So, if the head element is accessible, the following should all be. We formalize that
+here, but a more general case. That is, given accessible cnfOT x, all ≼ₙ x are accessible.
+-/
+def listBoundedBy (x : OT) (xs : List OT) : Prop := ∀ y, y ∈ xs → y ≼ x
+
+/-
+If an upperbound is accessible then it is accessible
+-/
+theorem bounded_acc (x y : cnfOT) (hyx : y≼ₙx) (hx : Acc cnf_lt x) : Acc cnf_lt y := by
+  cases hyx with
+    | inl hyx_lt => cases hx with
+                      | intro x ih => exact ih y hyx_lt
+    | inr hyx_eq => have hEq : y = x := Subtype.ext hyx_eq
+                    simpa [hEq] using hx
+
+theorem boundedList_acc (x : cnfOT) (hx : Acc cnf_lt x) (xs : cnfOTList)
+                  (hxs : listBoundedBy x.1 xs.1) : Acc cnfOTList_lt xs := by
+  induction hx generalizing xs with
+    /-
+    Induction, to prove the case for x, we assume the theorem holds for all y≺ₙx. Formally,
+      "∀ y : cnfOT, cnf_lt y x → ∀ xs :cnfOTList, listBoundedBy y.1 xs.1 → Acc cnfOTList_lt xs"
+    In the following LEAN format, x is in question, and ih is simply induction hypothesis. We
+    prove Acc cnfOTList_lt xs, i.e., xs is accessible with respect to cnfOTList_lt
+    -/
+    | intro x ih => rcases xs with ⟨xs, hxss⟩ -- The list is the first coodinate
+                    cases xs with -- Let xs denote the cnfOTList now
+                    -- The goal is Acc cnfOTList_lt <[], hxs>
+                    | nil => exact cnfList_nil_acc
+                    /-
+                    The goal is Acc cnfOTList_lt <a :: as, hxs>, where a : OT, as : OTList.
+                    We can simply prove
+                      "∀ ys : cnfOTList, cnfOTList_lt ys xs → Acc cnfOTList_lt ys"
+                    "hys_lt" to stand for cnfOTList_lt ys xs
+                    -/
+                    | cons a as => apply Acc.intro
+                                   intro ys hys_lt
+                                   unfold cnfOTList_lt at hys_lt -- lt_list ys.1 xs.1
+                                   rcases ys with ⟨ys, hysNorm⟩
+                                   cases ys with
+                                   | nil => exact cnfList_nil_acc
+                                   | cons b bs => cases hys_lt with
+                                                  /-
+                                                  For this case, we have ys ≺ₙₗ xs because of
+                                                  b ≺ₙ a, head comparison.
+                                                  -/
+                                                  | head_cons => sorry
+                                                  | tail_cons => sorry
 
 
+theorem cnf_lt_acc : ∀ a : cnfOT, Acc cnf_lt a := by sorry
+
+theorem cnf_lt_wf : WellFounded cnf_lt := by exact ⟨cnf_lt_acc⟩
 
 end OT
+
+
+/- Github push code
+git status
+git add .
+git commit -m "New definition; wf set-up"
+git push
+-/
