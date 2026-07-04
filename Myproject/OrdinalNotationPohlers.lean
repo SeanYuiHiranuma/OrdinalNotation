@@ -269,15 +269,47 @@ theorem cnf_lt_asym {a b : cnfOT} (hab : a≺ₙb) : ¬ b ≺ₙ a := by
 theorem cnf_leq_antisym {a b : cnfOT} (hab : a≼ₙb) (hba : b≼ₙa) : a = b := by
   apply Subtype.ext
   exact leq_antisym hab hba
+-- Transitive (leq)
+theorem leq_trans {a b c : OT} : a ≼ b → b ≼ c → a ≼ c := by
+  intro hab hbc
+  cases hab with
+    | inl hab_lt =>
+        cases hbc with
+          | inl hbc_lt =>
+              left
+              exact lt_trans hab_lt hbc_lt
+          | inr hbc_eq =>
+              left
+              simpa [hbc_eq] using hab_lt
+    | inr hab_eq =>
+        cases hbc with
+          | inl hbc_lt =>
+              left
+              simpa [← hab_eq] using hbc_lt
+          | inr hbc_eq =>
+              right
+              exact Eq.trans hab_eq hbc_eq
+lemma cnf_lt_of_lt_is_le {a b c : cnfOT} : a ≺ₙ b → b ≼ₙ c → a ≺ₙ c := by
+  intro hab hbc
+  cases hbc with
+    | inl lt => exact cnf_lt_trans hab lt
+    | inr eq => simpa [cnf_lt, eq] using hab
+lemma cnf_lt_of_le_of_lt {a b c : cnfOT} : a ≼ₙ b → b ≺ₙ c → a ≺ₙ c := by
+  intro hab hbc
+  cases hab with
+    | inl lt => exact cnf_lt_trans lt hbc
+    | inr eq => simpa [cnf_lt, eq] using hbc
+
+-- Reflective (leq)
+lemma cnf_leq_refl (a : cnfOT) : a ≼ₙ a := by
+  right; rfl
+
 /-
 This concludes the proof of linear ordering of cnfOT
 -/
 
 
 -- WELL_FOUNDEDNESS
-#check Acc
-#check Acc.intro
-#check WellFounded
 
 /-
 LEAN formalizes the concept of Well-Foundedness with the use of accessibility. "Acc lt a" will mean
@@ -291,74 +323,263 @@ graphically.
 -/
 -- List of cnfOT
 def cnfOTList : Type := {xs : List OT // normalList xs}
+-- Comparison of List of cnfOT
 def cnfOTList_lt (xs ys : cnfOTList) : Prop := lt_list xs.1 ys.1
-/-
-We want to prove that given any a : cnfOT, a is accessible with respect to ≼ₙ. That is, every
-b ≼ₙ a is accessible. b ≼ₙ a means b.1 ≼ a.1, which is
-                  cnf (some OT list for b) ≼ cnf (some OT list for a)
-This relation, recall, is defined lexicographically, syntactically. This will mean, if
-a is accessible, then every normal list whose elemetns are ≤ a is accessible. I emphasize
-we consider the normal case and not the general OT.
--/
--- cnfList []
-theorem cnfList_nil_acc : Acc cnfOTList_lt ⟨[], normalList.nil⟩ := by
-  apply Acc.intro --change goal to ∀ b, cnfList_lt b ⟨[], normalList.nil⟩, Acc cnfList_lt b
-  intro b hb
-  unfold cnfOTList_lt at hb -- lt_list b.1 []
-  rcases b with ⟨xs, hxs⟩
-  cases hb
-/-
-So, when we focus on the list elements, as previously explained, a normal CNF lists are
-decreasing. So, if the head element is accessible, the following should all be. We formalize that
-here, but a more general case. That is, given accessible cnfOT x, all ≼ₙ x are accessible.
--/
-def listBoundedBy (x : OT) (xs : List OT) : Prop := ∀ y, y ∈ xs → y ≼ x
 
 /-
-If an upperbound is accessible then it is accessible
+Every element of a list is bouned by some term.
+Mathematically, the exponents of the CNF have to be decreasing. Then, obviously, the all exponents
+are bounded above by the first exponent.
 -/
-theorem bounded_acc (x y : cnfOT) (hyx : y≼ₙx) (hx : Acc cnf_lt x) : Acc cnf_lt y := by
+def listBoundedBy (x : OT) (xs : List OT) : Prop := ∀ y : OT, y ∈ xs → y ≼ x
+
+/-
+The elements of a normal list are all normal.
+We have defined cnfOTList as a tuple. But this is, intuitively, trying to retrieve the reverse
+direction.
+-/
+-- Head case
+lemma normalList_head_normal {x : OT} {xs : List OT} : normalList (x :: xs) → normal x := by
+  intro h
+  cases xs with
+    | nil => cases h with
+              | singleton s => exact s
+    | cons a as => cases h with
+                    | cons hx htail hyx => exact hx
+-- Tail case
+lemma normalList_tail_normal {x : OT} {xs : List OT} : normalList (x :: xs) → normalList xs := by
+  intro h
+  cases xs with
+    | nil => exact normalList.nil
+    | cons a as => cases h with
+                    | cons hx htail hyx => exact htail
+lemma normalList_tail_bounded_by_head {x : OT} {xs : List OT} :
+    normalList (x :: xs) → listBoundedBy x xs := by
+  induction xs generalizing x with
+    | nil =>
+        intro h y hy
+        cases hy
+    | cons z zs ih =>
+        intro h y hy
+        cases h with
+          | cons hx htail hzx =>
+              simp at hy
+              cases hy with
+                | inl hy_eq =>
+                    simpa [hy_eq] using hzx
+                | inr hy_tail =>
+                    have hy_le_z : y ≼ z := by
+                      exact ih htail y hy_tail
+                    exact leq_trans hy_le_z hzx
+lemma normalList_bounded_by_head {x : OT} {xs : List OT} :
+    normalList (x :: xs) → listBoundedBy x (x :: xs) := by
+  intro h z hz
+  simp at hz
+  cases hz with
+    -- z = x
+    | inl hz_eq => subst z; right; rfl
+    | inr hz_tail =>
+        exact normalList_tail_bounded_by_head h z hz_tail
+/-
+Our goal is to prove accessibility of all cnfOT. Fixing arbitrary a : cnfOT, the definition is
+∀ b ≺ₙ a, Acc cnf_lt b.
+-/
+lemma acc_of_lt {x y : cnfOT} (hx : Acc cnf_lt x) (hyx : y≺ₙx) : Acc cnf_lt y := by
+  exact Acc.inv hx hyx
+lemma acc_of_le {x y : cnfOT} (hx : Acc cnf_lt x) (hyx : y≼ₙx) : Acc cnf_lt y := by
   cases hyx with
-    | inl hyx_lt => cases hx with
-                      | intro x ih => exact ih y hyx_lt
-    | inr hyx_eq => have hEq : y = x := Subtype.ext hyx_eq
-                    simpa [hEq] using hx
+    | inl hlt => exact Acc.inv hx hlt
+    | inr heq =>
+      have hxy : y = x := Subtype.ext heq
+      simpa [hxy] using hx
+/-
+cnfOT [] is accessible
+-/
+lemma nil_list_acc : Acc cnfOTList_lt ⟨[], normalList.nil⟩ := by
+  apply Acc.intro
+  intro y hy
+  rcases y with ⟨ys, ysNormal⟩
+  unfold cnfOTList_lt at hy
+  cases hy
+/-
+Suppose x : cnfOT bounds xs : cnfOTList. If x is accessible w.r.t. cnf_lt, then each of xs
+is accessible.
+-/
+theorem boundedList_acc (x : cnfOT) (hx : Acc cnf_lt x) :
+∀ xs : cnfOTList, listBoundedBy x.1 xs.1 → Acc cnfOTList_lt xs := by
+  /-
+  We are assuming that for all y ≺ₙ x that satisfies Acc cnf_lt y, the theorem statement holds.
+  That is, ∀ xs : cnfOTList, listBoundedBy y.1 xs.1 → Acc cnfOTList_lt xs. In the code below,
+            h : ∀ y ≺ₙ x, Acc cnf_lt y
+            ih : ∀ xs : cnfOTList, listBoundedBy y.1 xs.1 → Acc cnfOTList_lt xs
+  -/
+  induction hx with
+  -- Goal : ∀ xs : cnfOTList, listBoundedBy x.1 xs.1 → Acc cnfOTList_lt xs
+    | intro x h ih =>
+        intro xs hxs -- Fix arbitrary xs
+                     -- Assume listBoundedBy x.1 xs.1 (hxs)
+        -- Goal : Acc cnfOTList_lt xs
+        rcases xs with ⟨xs, hxs_normal⟩
+        revert hxs_normal hxs
+        /- Goal : ∀ xs : cnfOTList, normalList xs → listBoundedBy x.1 xs.1 →
+           Acc cnfOTList_lt ⟨xs, hxs_normal⟩ -/
+        induction xs with
+          | nil =>
+              intro hxs_normal hxs
+              -- Goal : Acc cnfOTList_lt ⟨[], hxs_normal⟩
+              exact nil_list_acc
+          /- IH : For any "cnfOTList_lt ys xs", assume
+                  "normalList ys → listBoundedBy x.1 ys.1 → Acc cnfOTList_lt ⟨ys, hys_normal⟩"
+             Goal : "∀ xs : cnfOTList, normalList xs → listBoundedBy x.1 xs.1 →
+                     Acc cnfOTList_lt ⟨xs, hxs_normal⟩"
+          -/
+          | cons a as ihList =>
+              intro hxs_normal hxs
+              -- Goal : Acc cnfOTList_lt ⟨xs, hxs_normal⟩
+              -- a is normal
+              have ha_normal : normal a := by
+                exact normalList_head_normal hxs_normal
+              -- as is a normal list
+              have has_normal : normalList as := by
+                exact normalList_tail_normal hxs_normal
+              -- a is less than x
+              have ha_le_x : (⟨a, ha_normal⟩ : cnfOT) ≼ₙ x := by
+                exact hxs a (by simp)
+              -- x bounded elements of as from above
+              have has_bound_by_x : listBoundedBy x.1 as := by
+                intro y hy
+                exact hxs y (by simp [hy])
+              -- At this point, we know all elements of xs is less than x
+              -- as is accessible
+              have has_acc : Acc cnfOTList_lt ⟨as, has_normal⟩ := by
+                exact ihList has_normal has_bound_by_x
+              -- concatenating normal list ts with normal a gives accessible list
+              have cons_acc_of_tail_acc : -- PROOF IS AI MUST CHECK
+                  ∀ ts : cnfOTList,
+                    Acc cnfOTList_lt ts →
+                    ∀ hcons : normalList (a :: ts.1),
+                      Acc cnfOTList_lt ⟨a :: ts.1, hcons⟩ := by
+                intro ts hts_acc
+                induction hts_acc with
+                  | intro ts smaller ihTail =>
+                      intro hcons
+                      apply Acc.intro
+                      intro ys hys
+                      rcases ys with ⟨ys, hys_normal⟩
+                      unfold cnfOTList_lt at hys
+                      cases ys with
+                        | nil =>
+                            simpa using nil_list_acc
+                        | cons b bs =>
+                            cases hys with
+                              | head_cons hb_lt_a =>
+                                  have hb_normal : normal b := by
+                                    exact normalList_head_normal hys_normal
+                                  have hb_lt_a_n :
+                                      (⟨b, hb_normal⟩ : cnfOT) ≺ₙ
+                                      (⟨a, ha_normal⟩ : cnfOT) := by
+                                    exact hb_lt_a
+                                  have hb_lt_x :
+                                      (⟨b, hb_normal⟩ : cnfOT) ≺ₙ x := by
+                                    exact cnf_lt_of_lt_is_le hb_lt_a_n ha_le_x
+                                  have hys_bound_by_b : listBoundedBy b (b :: bs) := by
+                                    exact normalList_bounded_by_head hys_normal
+                                  exact ih
+                                    (⟨b, hb_normal⟩ : cnfOT)
+                                    hb_lt_x
+                                    ⟨b :: bs, hys_normal⟩
+                                    hys_bound_by_b
+                              | tail_cons hbs_lt_ts =>
+                                  have hbs_normal : normalList bs := by
+                                    exact normalList_tail_normal hys_normal
+                                  have hbs_lt_ts' :
+                                      cnfOTList_lt ⟨bs, hbs_normal⟩ ts := by
+                                    unfold cnfOTList_lt
+                                    exact hbs_lt_ts
+                                  exact ihTail
+                                    ⟨bs, hbs_normal⟩
+                                    hbs_lt_ts'
+                                    hys_normal
+              exact cons_acc_of_tail_acc
+                ⟨as, has_normal⟩
+                has_acc
+                hxs_normal
 
-theorem boundedList_acc (x : cnfOT) (hx : Acc cnf_lt x) (xs : cnfOTList)
-                  (hxs : listBoundedBy x.1 xs.1) : Acc cnfOTList_lt xs := by
-  induction hx generalizing xs with
-    /-
-    Induction, to prove the case for x, we assume the theorem holds for all y≺ₙx. Formally,
-      "∀ y : cnfOT, cnf_lt y x → ∀ xs :cnfOTList, listBoundedBy y.1 xs.1 → Acc cnfOTList_lt xs"
-    In the following LEAN format, x is in question, and ih is simply induction hypothesis. We
-    prove Acc cnfOTList_lt xs, i.e., xs is accessible with respect to cnfOTList_lt
-    -/
-    | intro x ih => rcases xs with ⟨xs, hxss⟩ -- The list is the first coodinate
-                    cases xs with -- Let xs denote the cnfOTList now
-                    -- The goal is Acc cnfOTList_lt <[], hxs>
-                    | nil => exact cnfList_nil_acc
-                    /-
-                    The goal is Acc cnfOTList_lt <a :: as, hxs>, where a : OT, as : OTList.
-                    We can simply prove
-                      "∀ ys : cnfOTList, cnfOTList_lt ys xs → Acc cnfOTList_lt ys"
-                    "hys_lt" to stand for cnfOTList_lt ys xs
-                    -/
-                    | cons a as => apply Acc.intro
-                                   intro ys hys_lt
-                                   unfold cnfOTList_lt at hys_lt -- lt_list ys.1 xs.1
-                                   rcases ys with ⟨ys, hysNorm⟩
-                                   cases ys with
-                                   | nil => exact cnfList_nil_acc
-                                   | cons b bs => cases hys_lt with
-                                                  /-
-                                                  For this case, we have ys ≺ₙₗ xs because of
-                                                  b ≺ₙ a, head comparison.
-                                                  -/
-                                                  | head_cons => sorry
-                                                  | tail_cons => sorry
+-- Convert a cnfOT into a cnf
+def cnfList_as_cnfOT (xs : cnfOTList) : cnfOT := ⟨OT.cnf xs.1, normal.cnf xs.2⟩
 
+/-
+If xs is accessible w.r.t. cnfOTList_lt, then it is w.r.t. cnf_lt
+-/
+lemma cnf_acc_of_list_acc (xs : cnfOTList) (hxs_acc : Acc cnfOTList_lt xs) :
+    Acc cnf_lt (cnfList_as_cnfOT xs) := by
+  /-
+  IH : ∀ ys, cnfOTList_lt ys xs → Acc cnfOTList_lt ys
+  Goal : Acc cnf_lt (cnfList_as_cnfOT xs)
+  -/
+  induction hxs_acc with
+    | intro xs hys ih =>
+        rcases xs with ⟨xs, hxs_normal⟩
+        apply Acc.intro
+        /-
+        Goal : ∀ b < cnfList_as_cnfOT xs, Acc cnf_lt z
+        hb : cnf_lt b (cnfList_as_cnfOT xs)
+        b : cnfOT
+        -/
+        intro b hb
+        -- Goal : Acc cnf_lt z
+        rcases b with ⟨b, hb_normal⟩
+        -- b : OT, hb_normal : normal (cnf b)
+        cases b with
+          | cnf ys =>
+              cases hb_normal with
+                | cnf hys_normal =>
+                    change OT.cnf ys ≺ OT.cnf xs at hb
+                    cases hb with
+                    | cnf_lt hlist =>
+                        have hlist' :
+                            cnfOTList_lt ⟨ys, hys_normal⟩ ⟨xs, hxs_normal⟩ := by
+                          unfold cnfOTList_lt
+                          exact hlist
+                        simpa [cnfList_as_cnfOT] using ih ⟨ys, hys_normal⟩ hlist'
+/-
+Mutual accessibility. Every normal term/list is accessible.
+-/
+mutual
+theorem cnfOT_acc : ∀ (a : OT) (ha : normal a), Acc cnf_lt ⟨a, ha⟩
+  | OT.cnf as, normal.cnf nas => by
+        simpa [cnfList_as_cnfOT] using cnf_acc_of_list_acc ⟨as, nas⟩ (cnfOTList_acc as nas)
 
-theorem cnf_lt_acc : ∀ a : cnfOT, Acc cnf_lt a := by sorry
+theorem cnfOTList_acc : ∀ (xs : List OT) (hxs : normalList xs), Acc cnfOTList_lt ⟨xs, hxs⟩
+  | [], normalList.nil => by
+      exact nil_list_acc
+  | [x], normalList.singleton hx => by
+      have hx_acc : Acc cnf_lt (⟨x, hx⟩ : cnfOT) :=
+        cnfOT_acc x hx
+      exact boundedList_acc
+        (⟨x, hx⟩ : cnfOT)
+        hx_acc
+        ⟨[x], normalList.singleton hx⟩
+        (by
+          intro y hy
+          simp at hy
+          subst y
+          right
+          rfl)
+  | x :: y :: xs, normalList.cons hx htail hyx => by
+      have hx_acc : Acc cnf_lt (⟨x, hx⟩ : cnfOT) :=
+        cnfOT_acc x hx
+      exact boundedList_acc
+        (⟨x, hx⟩ : cnfOT)
+        hx_acc
+        ⟨x :: y :: xs, normalList.cons hx htail hyx⟩
+        (normalList_bounded_by_head (normalList.cons hx htail hyx))
+end
+
+theorem cnf_lt_acc : ∀ a : cnfOT, Acc cnf_lt a := by
+  intro a
+  rcases a with ⟨a, ha⟩
+  exact cnfOT_acc a ha
 
 theorem cnf_lt_wf : WellFounded cnf_lt := by exact ⟨cnf_lt_acc⟩
 
