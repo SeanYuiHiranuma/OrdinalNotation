@@ -589,6 +589,6 @@ end OT
 /- Github push code
 git status
 git add .
-git commit -m "New definition; wf set-up"
+git commit -m "update"
 git push
 -/
