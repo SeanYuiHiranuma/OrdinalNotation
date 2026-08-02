@@ -67,10 +67,27 @@ inductive vList_equiv : List PT → List PT → Prop where
 end
 infix:50 " ≺ᵥ " => vOT_lt
 infix:50 " =ᵥ " => vOT_equiv
-
 -- Non-strict comparison of principals
 def vPT_le (x y : PT) : Prop := vPT_lt x y ∨ vPT_equiv x y
 
+
+-- NORMALITY
+/-
+Given the construction of the normal form of ordinals below Γ₀, the representation
+        α = φ_{a₁}(b₁) + φ_{a₂}(b₂) + ... + φ_{aₙ}(bₙ)
+must satisfy φ_{a₁}(b₁) ≥ φ_{a₂}(b₂) ≥ ... ≥ φ_{aₙ}(bₙ).
+-/
+mutual
+inductive normal : vOT → Prop where
+  | vnf {xs : List PT} : normalList xs → normal (vOT.vnf xs)
+inductive normalList : List PT → Prop where
+  | nil : normalList []
+  | singleton {x : PT} : normalPT x → normalList [x]
+  | cons {x y : PT} {xs : List PT} : normalPT x → vPT_le y x → normalList (y :: xs)
+                                   → normalList (x :: y :: xs)
+inductive normalPT : PT → Prop where
+  | cons {a b : vOT} : normal a → normal b → normalPT (a, b)
+end
 
 
 
