@@ -657,3 +657,39 @@ theorem omegaTerm_eq_trans {a b c : omegaTerm} (hab : a =o b) (hbc : b =o c) :
             (countableOrd_eq_trans habBeta hbcBeta)
             (omegaTerm_eq_trans habGamma hbcGamma)
 end
+
+
+
+--===============================================================================
+-- Normal Objects
+--===============================================================================
+/-
+So far, the properties proven are for the raw data type. Mathematically, the objects
+are not well-defined as normality of them is not included. We redefine the
+proper objects here.
+-/
+abbrev NormalCountableOrd :=
+  {a : countableOrd // countableOrd_normal a}
+abbrev NormalPrincipal :=
+  {p : principal // principal_normal p}
+abbrev NormalOmegaTerm :=
+  {o : omegaTerm // omegaTerm_normal o}
+abbrev NormalPrincipalList :=
+  {ps : List principal // principalList_normal ps}
+def NormalCountableOrd_lt (a b : NormalCountableOrd) : Prop := a.1 <c b.1
+def NormalCountableOrd_eq (a b : NormalCountableOrd) : Prop := a.1 =c b.1
+infix:50 " <nc " => NormalCountableOrd_lt
+infix:50 " =nc " => NormalCountableOrd_eq
+theorem NormalCountableOrd_tri (a b : NormalCountableOrd) :
+    a <nc b ∨ a =nc b ∨ b <nc a := by
+  exact countableOrd_tri a.1 b.1
+theorem NormalPrincipal_tri (a b : NormalPrincipal) :
+    a.1 <p b.1 ∨ a.1 =p b.1 ∨ b.1 <p a.1 := by
+  exact principal_tri a.1 b.1
+theorem NormalOmegaTerm_tri (a b : NormalOmegaTerm) :
+    a.1 <o b.1 ∨ a.1 =o b.1 ∨ b.1 <o a.1 := by
+  exact omegaTerm_tri a.1 b.1
+theorem NormalPrincipalList_tri (as bs : NormalPrincipalList) :
+    principalList_lt as.1 bs.1 ∨ principalList_eq as.1 bs.1 ∨
+    principalList_lt bs.1 as.1 := by
+  exact principalList_tri as.1 bs.1
