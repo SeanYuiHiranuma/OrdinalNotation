@@ -88,8 +88,10 @@ inductive normalList : List PT → Prop where
 inductive normalPT : PT → Prop where
   | cons {a b : vOT} : normal a → normal b → normalPT (a, b)
 end
-
-
+/-
+With this set-up, we formalize a new definition of normal forms which is normal
+-/
+def VOT := {a : vOT // normal a}
 
 
 end vOT
