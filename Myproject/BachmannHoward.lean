@@ -575,3 +575,85 @@ decreasing_by
     simp [coefficientList_cmplx] <;>
     omega
 end
+
+
+--===============================================================================
+-- Reflexitivity of =
+--===============================================================================
+theorem countableOrd_eq_refl (a : countableOrd) : a =c a := by
+  cases countableOrd_tri a a with
+  | inl hlt => exact False.elim (countableOrd_lt_irrefl hlt)
+  | inr hrest =>
+    cases hrest with
+    | inl heq => exact heq
+    | inr hrt => exact False.elim (countableOrd_lt_irrefl hrt)
+theorem principal_eq_refl (p : principal) : p =p p := by
+  cases principal_tri p p with
+  | inl hlt => exact False.elim (principal_lt_irrefl hlt)
+  | inr hrest =>
+    cases hrest with
+    | inl heq => exact heq
+    | inr hrt => exact False.elim (principal_lt_irrefl hrt)
+theorem principalList_eq_refl (ps : List principal) : principalList_eq ps ps := by
+  cases principalList_tri ps ps with
+  | inl hlt => exact False.elim (principalList_lt_irrefl hlt)
+  | inr hrest =>
+    cases hrest with
+    | inl heq => exact heq
+    | inr hrt => exact False.elim (principalList_lt_irrefl hrt)
+theorem omegaTerm_eq_refl (o : omegaTerm) : o =o o := by
+  cases omegaTerm_tri o o with
+  | inl hlt => exact False.elim (omegaTerm_lt_irrefl hlt)
+  | inr hrest =>
+    cases hrest with
+    | inl heq => exact heq
+    | inr hrt => exact False.elim (omegaTerm_lt_irrefl hrt)
+
+--===============================================================================
+-- Transitivity of =
+--===============================================================================
+mutual
+theorem countableOrd_eq_trans {a b c : countableOrd} (hab : a =c b) (hbc : b =c c) :
+        a =c c := by
+  cases hab with
+  | sum habList =>
+      cases hbc with
+      | sum hbcList =>
+          exact countableOrd_eq.sum
+            (principalList_eq_trans habList hbcList)
+theorem principal_eq_trans {a b c : principal} (hab : a =p b) (hbc : b =p c) :
+        a =p c := by
+  cases hab with
+  | psi habOmega =>
+      cases hbc with
+      | psi hbcOmega =>
+          exact principal_eq.psi
+            (omegaTerm_eq_trans habOmega hbcOmega)
+theorem principalList_eq_trans {as bs cs : List principal} (hab : principalList_eq as bs)
+        (hbc : principalList_eq bs cs) : principalList_eq as cs := by
+  cases hab with
+  | nil =>
+      cases hbc with
+      | nil =>
+          exact principalList_eq.nil
+  | cons habHead habTail =>
+      cases hbc with
+      | cons hbcHead hbcTail =>
+          exact principalList_eq.cons
+            (principal_eq_trans habHead hbcHead)
+            (principalList_eq_trans habTail hbcTail)
+theorem omegaTerm_eq_trans {a b c : omegaTerm} (hab : a =o b) (hbc : b =o c) :
+        a =o c := by
+  cases hab with
+  | zero =>
+      cases hbc with
+      | zero =>
+          exact omegaTerm_eq.zero
+  | omegaNF habAlpha habBeta habGamma =>
+      cases hbc with
+      | omegaNF hbcAlpha hbcBeta hbcGamma =>
+          exact omegaTerm_eq.omegaNF
+            (omegaTerm_eq_trans habAlpha hbcAlpha)
+            (countableOrd_eq_trans habBeta hbcBeta)
+            (omegaTerm_eq_trans habGamma hbcGamma)
+end
