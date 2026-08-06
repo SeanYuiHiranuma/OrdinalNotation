@@ -160,7 +160,9 @@ inductive countableOrd_normal : countableOrd → Prop where
   | sum {ps : List principal} (h : principalList_normal ps) : countableOrd_normal (.sum ps)
 -- Normal if the argument α of ψ(α) is normal
 inductive principal_normal : principal → Prop where
-  | psi {a : omegaTerm} (h : omegaTerm_normal a) : principal_normal (.psi a)
+  | psi {a : omegaTerm} (harg : omegaTerm_normal a)
+      (hcoeff : coefficientList_lt (omegaTerm.coefficients a) (countableOrd.ofPrincipal (.psi a))) :
+      principal_normal (.psi a)
 -- Normal if each principal is normal and the list is in nonincreasing order
 inductive principalList_normal : List principal → Prop where
   | nil : principalList_normal []
@@ -198,7 +200,14 @@ theorem countableOrd_zero_normal :
     countableOrd_normal countableOrd.zero := by
   exact countableOrd_normal.sum principalList_normal.nil
 theorem principal_one_normal : principal_normal principal.one := by
-  exact principal_normal.psi omegaTerm_normal.zero
+  apply principal_normal.psi
+  · exact omegaTerm_normal.zero
+  · change coefficientList_lt
+      [countableOrd.zero]
+      countableOrd.one
+    exact coefficientList_lt.cons
+      countableOrd_zero_lt_one
+      coefficientList_lt.nil
 theorem countableOrd_one_normal : countableOrd_normal countableOrd.one := by
   exact countableOrd_normal.sum (principalList_normal.singleton principal_one_normal)
 theorem omegaTerm_one_normal : omegaTerm_normal omegaTerm.one := by
@@ -227,5 +236,163 @@ theorem bigOmega_normal :
   · exact omegaTerm_lt.zero
 
 --===============================================================================
--- Reflexivity of =
+-- Irreflexivity of <
 --===============================================================================
+mutual
+theorem countableOrd_lt_irrefl {a : countableOrd} (h : a<ca) : False := by
+  cases h with
+  | sum list => exact principalList_lt_irrefl list
+theorem principal_lt_irrefl {a : principal} (h : a<pa) : False := by
+  cases h with
+  | psi_forward h1 _ => exact omegaTerm_lt_irrefl h1
+  | psi_reverse_lt h2 _ _ => exact omegaTerm_lt_irrefl h2
+  | psi_reverse_eq h3 _ _ => exact omegaTerm_lt_irrefl h3
+theorem principalList_lt_irrefl {l : List principal} (h : principalList_lt l l) : False := by
+  cases h with
+  | head h1 => exact principal_lt_irrefl h1
+  | tail _ h2 => exact principalList_lt_irrefl h2
+theorem omegaTerm_lt_irrefl {om : omegaTerm} (h : om <o om) : False := by
+  cases h with
+  | exponent h1 => exact omegaTerm_lt_irrefl h1
+  | coefficient _ h2 => exact countableOrd_lt_irrefl h2
+  | remainder _ _ h3 => exact omegaTerm_lt_irrefl h3
+end
+
+
+--===============================================================================
+-- Symmetry of =
+--===============================================================================
+mutual
+theorem countableOrd_eq_sym {a b : countableOrd} (h : a=cb) : b =c a :=by
+  cases h with
+  | sum h1 => exact countableOrd_eq.sum (principalList_eq_sym h1)
+theorem principal_eq_sym {a b : principal} (h : a =p b) : b =p a := by
+  cases h with
+  | psi h1 => exact principal_eq.psi (omegaTerm_eq_sym h1)
+theorem principalList_eq_sym {as bs : List principal} (h : principalList_eq as bs) :
+        principalList_eq bs as := by
+  cases h with
+  | nil => exact principalList_eq.nil
+  | cons head tail => exact
+                      principalList_eq.cons (principal_eq_sym head) (principalList_eq_sym tail)
+theorem omegaTerm_eq_sym {o1 o2 : omegaTerm} (h : o1 =o o2) : o2 =o o1 := by
+  cases h with
+  | zero => exact omegaTerm_eq.zero
+  | omegaNF alpha beta gamma => exact omegaTerm_eq.omegaNF (omegaTerm_eq_sym alpha)
+                                      (countableOrd_eq_sym beta) (omegaTerm_eq_sym gamma)
+end
+
+--===============================================================================
+-- Trichotomy of < and =
+--===============================================================================
+mutual
+theorem countableOrd_tri (a b : countableOrd) : a<cb ∨ a=cb ∨ b<ca := by
+  cases a with
+    | sum alist => cases b with
+                    | sum blist =>
+                      cases principalList_tri alist blist with
+                        | inl hxy => exact Or.inl (countableOrd_lt.sum hxy)
+                        | inr hrest =>
+                          cases hrest with
+                            | inl heq => exact Or.inr (Or.inl (countableOrd_eq.sum heq))
+                            | inr hyx => exact Or.inr (Or.inr (countableOrd_lt.sum hyx))
+theorem principal_tri (a b : principal) : a<pb ∨ a=pb ∨ b<pa := by
+  cases a with
+  | psi o1 =>
+    cases b with
+    | psi o2 =>
+      cases omegaTerm_tri o1 o2 with
+      | inl hxy =>
+        cases coefficientList_tri (omegaTerm.coefficients o1)
+              (countableOrd.ofPrincipal (.psi o2)) with
+        | inl hcoeff => exact Or.inl (principal_lt.psi_forward hxy hcoeff)
+        | inr hwitness =>
+          obtain ⟨c, hc, hcomp⟩ := hwitness
+          cases hcomp with
+          | inl hlt => exact Or.inr (Or.inr (principal_lt.psi_reverse_lt hxy hc hlt))
+          | inr heq => exact Or.inr (Or.inr (principal_lt.psi_reverse_eq hxy hc heq))
+      | inr hrest =>
+        cases hrest with
+        | inl heq => exact Or.inr (Or.inl (principal_eq.psi heq))
+        | inr hyx =>
+          cases coefficientList_tri (omegaTerm.coefficients o2)
+                (countableOrd.ofPrincipal (.psi o1)) with
+          | inl hcoeff => exact Or.inr (Or.inr (principal_lt.psi_forward hyx hcoeff))
+          | inr hwitness =>
+            obtain ⟨c, hc, hcomp⟩ := hwitness
+            cases hcomp with
+            | inl hlt => exact Or.inl (principal_lt.psi_reverse_lt hyx hc hlt)
+            | inr hequ =>exact Or.inl (principal_lt.psi_reverse_eq hyx hc hequ)
+theorem principalList_tri (as bs : List principal) : principalList_lt as bs ∨ principalList_eq as bs ∨
+                                                     principalList_lt bs as := by
+  induction as generalizing bs with
+  | nil =>
+    cases bs with
+    | nil => exact Or.inr (Or.inl principalList_eq.nil)
+    | cons b btail => exact Or.inl principalList_lt.nil
+  | cons a atail ih =>
+    cases bs with
+    | nil => exact Or.inr (Or.inr principalList_lt.nil)
+    | cons B Btail =>
+      cases principal_tri a B with
+      | inl hab => exact Or.inl (principalList_lt.head hab)
+      | inr hrest =>
+        cases hrest with
+        | inl heq =>
+          cases ih Btail with
+          | inl htail => exact Or.inl (principalList_lt.tail heq htail)
+          | inr htailrest =>
+            cases htailrest with
+            | inl htaileq => exact Or.inr (Or.inl (principalList_eq.cons heq htaileq))
+            | inr htailrev => exact Or.inr (Or.inr (principalList_lt.tail (principal_eq_sym heq)
+                                htailrev))
+        | inr hba => exact Or.inr (Or.inr (principalList_lt.head hba))
+
+theorem omegaTerm_tri (o1 o2 : omegaTerm) : o1<oo2 ∨ o1=oo2 ∨ o2<oo1 := by
+  cases o1 with
+  | zero =>
+    cases o2 with
+    | zero => exact Or.inr (Or.inl omegaTerm_eq.zero)
+    | omegaNF a1 b1 c1 => exact Or.inl omegaTerm_lt.zero
+  | omegaNF a2 b2 c2 =>
+    cases o2 with
+    | zero => exact Or.inr (Or.inr omegaTerm_lt.zero)
+    | omegaNF a3 b3 c3 =>
+      cases omegaTerm_tri a2 a3 with
+      | inl h23 => exact Or.inl (omegaTerm_lt.exponent h23)
+      | inr hrest =>
+        cases hrest with
+        | inl h23eq =>
+          cases countableOrd_tri b2 b3 with
+          | inl hb2b3 => exact Or.inl (omegaTerm_lt.coefficient h23eq hb2b3)
+          | inr hbrest =>
+            cases hbrest with
+            | inl hbeq =>
+              cases omegaTerm_tri c2 c3 with
+              | inl hc23 => exact Or.inl (omegaTerm_lt.remainder h23eq hbeq hc23)
+              | inr hcrest =>
+                cases hcrest with
+                | inl hceq => exact Or.inr (Or.inl (omegaTerm_eq.omegaNF h23eq hbeq hceq))
+                | inr hc32 => exact Or.inr (Or.inr (omegaTerm_lt.remainder (omegaTerm_eq_sym h23eq) (countableOrd_eq_sym hbeq) hc32))
+            | inr hb3b2 => exact Or.inr (Or.inr (omegaTerm_lt.coefficient (omegaTerm_eq_sym h23eq) hb3b2))
+        | inr ha3a2 => exact Or.inr (Or.inr (omegaTerm_lt.exponent ha3a2))
+theorem coefficientList_tri (cs : List countableOrd) (bound : countableOrd) :
+    coefficientList_lt cs bound ∨ ∃ c, c ∈ cs ∧ (bound <c c ∨ bound =c c) := by
+  induction cs with
+  | nil => left; exact coefficientList_lt.nil
+  | cons c cs ih =>
+    cases countableOrd_tri bound c with
+    | inl hbc => right; exact ⟨c, List.mem_cons_self, Or.inl hbc⟩
+    | inr hrest =>
+      cases hrest with
+      | inl heq => right; exact ⟨c, List.mem_cons_self, Or.inr heq⟩
+      | inr hcb =>
+        cases ih with
+        | inl htail => left; exact coefficientList_lt.cons hcb htail
+        | inr hexists =>
+          cases hexists with
+          | intro d hd =>
+             cases hd with
+            | intro hd_mem hd_rel => right; exact ⟨d, List.mem_cons_of_mem c hd_mem, hd_rel⟩
+
+end
