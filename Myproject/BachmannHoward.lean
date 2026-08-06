@@ -6,7 +6,7 @@ import Mathlib
 /-
 We follow Fernandez-Duque and Weiermann's notations. We represent the parameterized
 collapsing function θ_X(ζ) as ψ(ζ) := θ_P(ζ) where P = {ω^{α} : α ∈ On}, the class
-of principal ordinals (this does not lose any generality).
+of principal ordinals.
 -/
 mutual
 inductive countableOrd where
@@ -283,6 +283,109 @@ theorem omegaTerm_eq_sym {o1 o2 : omegaTerm} (h : o1 =o o2) : o2 =o o1 := by
 end
 
 --===============================================================================
+-- Structural Complexity
+--===============================================================================
+/-
+We attempted to prove the trichotomy of each definition (countableOrd, principal, List principal,
+and omegaTerm). But we ended up with a circular proof without termination, and this does not
+work. We attempt a different approach by measuring the synctactic complexity of our
+expressions. Concretely,
+countableOrd : Given countableOrd.sum ps
+               (i) complexity of each principal in ps,
+               (ii) complexity of the list structure ps
+               (iii) +1 for the sum constructor
+principal : Given principal.psi o
+            (i) complexity of argument o
+            (ii) +1 for the psi constructor
+List principal : Given p :: ps
+                 (i) complexity of principal p
+                 (ii) complexity of principal list ps
+                 (iii) +1 for the list constructor
+omegaTerm : Given omegaTerm.zero 4
+            Given omegaTerm.omegaNF alpha beta gamma
+            (i) complexity of omegaTerm alpha
+            (ii) complexity of omegaTerm beta
+            (iii) complexity of omegaTerm gamma
+            (iv) +1 for the constructor
+
+-/
+mutual
+  def countableOrd_cmplx (a : countableOrd) : Nat :=
+    match a with
+    | .sum ps => principalList_cmplx ps + 1
+  termination_by
+    sizeOf a
+  decreasing_by
+    all_goals simp_wf
+
+  def principal_cmplx (p : principal) : Nat :=
+    match p with
+    | .psi o => omegaTerm_cmplx o + 1
+  termination_by
+    sizeOf p
+  decreasing_by
+    all_goals simp_wf
+
+  def principalList_cmplx (ps : List principal) : Nat :=
+    match ps with
+    | [] => 0
+    | q :: qs =>
+        principal_cmplx q + principalList_cmplx qs + 1
+  termination_by
+    sizeOf ps
+  decreasing_by
+    all_goals simp_wf <;> omega
+
+  def omegaTerm_cmplx (o : omegaTerm) : Nat :=
+    match o with
+    | .zero => 4
+    | .omegaNF a b c =>
+        omegaTerm_cmplx a
+          + countableOrd_cmplx b
+          + omegaTerm_cmplx c
+          + 1
+  termination_by
+    sizeOf o
+  decreasing_by
+    all_goals simp_wf <;> omega
+end
+def coefficientList_cmplx : List countableOrd → Nat
+  | [] => 0
+  | c :: cs => countableOrd_cmplx c + coefficientList_cmplx cs + 1
+theorem coefficientList_cmplx_append (xs ys : List countableOrd) :
+        coefficientList_cmplx (xs ++ ys) = coefficientList_cmplx xs + coefficientList_cmplx ys
+        := by
+  induction xs with
+  | nil => simp [coefficientList_cmplx]
+  | cons x xs ih => simp only [List.cons_append, coefficientList_cmplx, ih]
+                    omega
+theorem coefficients_cmplx_lt (o : omegaTerm) : coefficientList_cmplx (omegaTerm.coefficients o) + 1
+                                                < omegaTerm_cmplx o := by
+  cases o with
+  | zero =>
+      simp [
+        omegaTerm.coefficients,
+        coefficientList_cmplx,
+        countableOrd.zero,
+        countableOrd_cmplx,
+        principalList_cmplx,
+        omegaTerm_cmplx
+      ]
+  | omegaNF alpha beta gamma =>
+      have hAlpha := coefficients_cmplx_lt alpha
+      have hGamma := coefficients_cmplx_lt gamma
+      simp only [
+        omegaTerm.coefficients,
+        coefficientList_cmplx_append,
+        coefficientList_cmplx,
+        omegaTerm_cmplx
+      ]
+      omega
+termination_by structural o
+
+
+
+--===============================================================================
 -- Trichotomy of < and =
 --===============================================================================
 mutual
@@ -296,6 +399,13 @@ theorem countableOrd_tri (a b : countableOrd) : a<cb ∨ a=cb ∨ b<ca := by
                           cases hrest with
                             | inl heq => exact Or.inr (Or.inl (countableOrd_eq.sum heq))
                             | inr hyx => exact Or.inr (Or.inr (countableOrd_lt.sum hyx))
+  termination_by
+    countableOrd_cmplx a + countableOrd_cmplx b
+  decreasing_by
+    all_goals
+      simp only [countableOrd_cmplx]
+      omega
+
 theorem principal_tri (a b : principal) : a<pb ∨ a=pb ∨ b<pa := by
   cases a with
   | psi o1 =>
@@ -323,31 +433,65 @@ theorem principal_tri (a b : principal) : a<pb ∨ a=pb ∨ b<pa := by
             cases hcomp with
             | inl hlt => exact Or.inl (principal_lt.psi_reverse_lt hyx hc hlt)
             | inr hequ =>exact Or.inl (principal_lt.psi_reverse_eq hyx hc hequ)
-theorem principalList_tri (as bs : List principal) : principalList_lt as bs ∨ principalList_eq as bs ∨
-                                                     principalList_lt bs as := by
-  induction as generalizing bs with
-  | nil =>
-    cases bs with
-    | nil => exact Or.inr (Or.inl principalList_eq.nil)
-    | cons b btail => exact Or.inl principalList_lt.nil
-  | cons a atail ih =>
-    cases bs with
-    | nil => exact Or.inr (Or.inr principalList_lt.nil)
-    | cons B Btail =>
-      cases principal_tri a B with
-      | inl hab => exact Or.inl (principalList_lt.head hab)
-      | inr hrest =>
-        cases hrest with
-        | inl heq =>
-          cases ih Btail with
-          | inl htail => exact Or.inl (principalList_lt.tail heq htail)
-          | inr htailrest =>
-            cases htailrest with
-            | inl htaileq => exact Or.inr (Or.inl (principalList_eq.cons heq htaileq))
-            | inr htailrev => exact Or.inr (Or.inr (principalList_lt.tail (principal_eq_sym heq)
-                                htailrev))
-        | inr hba => exact Or.inr (Or.inr (principalList_lt.head hba))
+  termination_by
+    principal_cmplx a + principal_cmplx b
+  decreasing_by
+    all_goals
+      have h1 := coefficients_cmplx_lt o1
+      have h2 := coefficients_cmplx_lt o2
+      simp only [
+        principal_cmplx,
+        countableOrd.ofPrincipal,
+        countableOrd_cmplx,
+        principalList_cmplx
+      ] at *
+      omega
 
+
+theorem principalList_tri (as bs : List principal) : principalList_lt as bs ∨
+        principalList_eq as bs ∨ principalList_lt bs as := by
+  cases as with
+  | nil =>
+      cases bs with
+      | nil => exact Or.inr (Or.inl principalList_eq.nil)
+      | cons b btail => exact Or.inl principalList_lt.nil
+  | cons a atail =>
+      cases bs with
+      | nil => exact Or.inr (Or.inr principalList_lt.nil)
+      | cons b btail =>
+          cases principal_tri a b with
+          | inl hab => exact Or.inl (principalList_lt.head hab)
+          | inr hrest =>
+              cases hrest with
+              | inl heq =>
+                  cases principalList_tri atail btail with
+                  | inl htail =>
+                      exact Or.inl
+                        (principalList_lt.tail heq htail)
+                  | inr htailrest =>
+                      cases htailrest with
+                      | inl htaileq =>
+                          exact Or.inr
+                            (Or.inl
+                              (principalList_eq.cons
+                                heq
+                                htaileq))
+                      | inr htailrev =>
+                          exact Or.inr
+                            (Or.inr
+                              (principalList_lt.tail
+                                (principal_eq_sym heq)
+                                htailrev))
+              | inr hba =>
+                  exact Or.inr
+                    (Or.inr
+                      (principalList_lt.head hba))
+termination_by
+  principalList_cmplx as + principalList_cmplx bs
+decreasing_by
+  all_goals
+    simp [principalList_cmplx]
+    omega
 theorem omegaTerm_tri (o1 o2 : omegaTerm) : o1<oo2 ∨ o1=oo2 ∨ o2<oo1 := by
   cases o1 with
   | zero =>
@@ -373,26 +517,61 @@ theorem omegaTerm_tri (o1 o2 : omegaTerm) : o1<oo2 ∨ o1=oo2 ∨ o2<oo1 := by
               | inr hcrest =>
                 cases hcrest with
                 | inl hceq => exact Or.inr (Or.inl (omegaTerm_eq.omegaNF h23eq hbeq hceq))
-                | inr hc32 => exact Or.inr (Or.inr (omegaTerm_lt.remainder (omegaTerm_eq_sym h23eq) (countableOrd_eq_sym hbeq) hc32))
-            | inr hb3b2 => exact Or.inr (Or.inr (omegaTerm_lt.coefficient (omegaTerm_eq_sym h23eq) hb3b2))
+                | inr hc32 => exact Or.inr (Or.inr (omegaTerm_lt.remainder (omegaTerm_eq_sym h23eq)
+                                            (countableOrd_eq_sym hbeq) hc32))
+            | inr hb3b2 => exact Or.inr (Or.inr (omegaTerm_lt.coefficient (omegaTerm_eq_sym h23eq)
+                                          hb3b2))
         | inr ha3a2 => exact Or.inr (Or.inr (omegaTerm_lt.exponent ha3a2))
-theorem coefficientList_tri (cs : List countableOrd) (bound : countableOrd) :
-    coefficientList_lt cs bound ∨ ∃ c, c ∈ cs ∧ (bound <c c ∨ bound =c c) := by
-  induction cs with
-  | nil => left; exact coefficientList_lt.nil
-  | cons c cs ih =>
-    cases countableOrd_tri bound c with
-    | inl hbc => right; exact ⟨c, List.mem_cons_self, Or.inl hbc⟩
-    | inr hrest =>
-      cases hrest with
-      | inl heq => right; exact ⟨c, List.mem_cons_self, Or.inr heq⟩
-      | inr hcb =>
-        cases ih with
-        | inl htail => left; exact coefficientList_lt.cons hcb htail
-        | inr hexists =>
-          cases hexists with
-          | intro d hd =>
-             cases hd with
-            | intro hd_mem hd_rel => right; exact ⟨d, List.mem_cons_of_mem c hd_mem, hd_rel⟩
+  termination_by
+    omegaTerm_cmplx o1 + omegaTerm_cmplx o2
+  decreasing_by
+    all_goals
+      simp only [omegaTerm_cmplx]
+      omega
+theorem coefficientList_tri
+    (cs : List countableOrd)
+    (bound : countableOrd) :
+    coefficientList_lt cs bound ∨
+      ∃ c, c ∈ cs ∧ (bound <c c ∨ bound =c c) := by
+  cases cs with
+  | nil =>
+      left
+      exact coefficientList_lt.nil
 
+  | cons c cs =>
+      cases countableOrd_tri bound c with
+      | inl hbc =>
+          right
+          exact ⟨c, List.mem_cons_self, Or.inl hbc⟩
+
+      | inr hrest =>
+          cases hrest with
+          | inl heq =>
+              right
+              exact ⟨c, List.mem_cons_self, Or.inr heq⟩
+
+          | inr hcb =>
+              cases coefficientList_tri cs bound with
+              | inl htail =>
+                  left
+                  exact coefficientList_lt.cons hcb htail
+
+              | inr hexists =>
+                  cases hexists with
+                  | intro d hd =>
+                      cases hd with
+                      | intro hd_mem hd_rel =>
+                          right
+                          exact ⟨
+                            d,
+                            List.mem_cons_of_mem c hd_mem,
+                            hd_rel
+                          ⟩
+termination_by
+  coefficientList_cmplx cs + countableOrd_cmplx bound
+decreasing_by
+  all_goals
+    simp_wf
+    simp [coefficientList_cmplx] <;>
+    omega
 end
