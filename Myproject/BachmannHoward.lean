@@ -137,6 +137,8 @@ def countableOrd_le (a b : countableOrd) : Prop :=
   countableOrd_lt a b ∨ countableOrd_eq a b
 def principal_le (a b : principal) : Prop :=
   principal_lt a b ∨ principal_eq a b
+def principalList_le (a b : List principal) : Prop :=
+  principalList_lt a b ∨ principalList_eq a b
 def principal_ge (a b : principal) : Prop :=
   principal_lt b a ∨ principal_eq a b
 def omegaTerm_le (a b : omegaTerm) : Prop :=
@@ -243,10 +245,12 @@ theorem countableOrd_lt_irrefl {a : countableOrd} (h : a<ca) : False := by
   cases h with
   | sum list => exact principalList_lt_irrefl list
 theorem principal_lt_irrefl {a : principal} (h : a<pa) : False := by
-  cases h with
-  | psi_forward h1 _ => exact omegaTerm_lt_irrefl h1
-  | psi_reverse_lt h2 _ _ => exact omegaTerm_lt_irrefl h2
-  | psi_reverse_eq h3 _ _ => exact omegaTerm_lt_irrefl h3
+  cases a with
+  | psi o =>
+      cases h with
+      | psi_forward ho _ => exact omegaTerm_lt_irrefl ho
+      | psi_reverse_lt ho _ _ => exact omegaTerm_lt_irrefl ho
+      | psi_reverse_eq ho _ _ => exact omegaTerm_lt_irrefl ho
 theorem principalList_lt_irrefl {l : List principal} (h : principalList_lt l l) : False := by
   cases h with
   | head h1 => exact principal_lt_irrefl h1
@@ -383,7 +387,25 @@ theorem coefficients_cmplx_lt (o : omegaTerm) : coefficientList_cmplx (omegaTerm
       omega
 termination_by structural o
 
-
+theorem coefficientList_member_cmplx_lt {c : countableOrd} {cs : List countableOrd} (hc : c ∈ cs) :
+        countableOrd_cmplx c < coefficientList_cmplx cs := by
+  induction cs with
+  | nil => simp at hc
+  | cons x xs ih =>
+    simp only [List.mem_cons] at hc
+    rcases hc with rfl | hc
+    · simp only [coefficientList_cmplx]
+      omega
+    · have h := ih hc
+      simp only [coefficientList_cmplx]
+      omega
+theorem coefficient_cmplx_lt_of_mem {o : omegaTerm} {c : countableOrd}
+        (hc : c ∈ omegaTerm.coefficients o) :
+        countableOrd_cmplx c + 2 < omegaTerm_cmplx o := by
+  have hmem : countableOrd_cmplx c < coefficientList_cmplx (omegaTerm.coefficients o) :=
+    coefficientList_member_cmplx_lt hc
+  have hall := coefficients_cmplx_lt o
+  omega
 
 --===============================================================================
 -- Trichotomy of < and =
@@ -613,7 +635,7 @@ theorem omegaTerm_eq_refl (o : omegaTerm) : o =o o := by
 -- Transitivity of =
 --===============================================================================
 mutual
-theorem countableOrd_eq_trans {a b c : countableOrd} (hab : a =c b) (hbc : b =c c) :
+theorem countableOrd_eq_trans {a b c : countableOrd} (hab : a=cb) (hbc : b=cc) :
         a =c c := by
   cases hab with
   | sum habList =>
@@ -658,6 +680,795 @@ theorem omegaTerm_eq_trans {a b c : omegaTerm} (hab : a =o b) (hbc : b =o c) :
             (omegaTerm_eq_trans habGamma hbcGamma)
 end
 
+--===============================================================================
+-- Transitivity of <
+--===============================================================================
+-- Helper lemmas connecting principal terms with singleton countable sums.
+theorem countableOrd_ofPrincipal_lt {p q : principal} (h : p<pq) :
+    countableOrd.ofPrincipal p <c countableOrd.ofPrincipal q := by
+  change countableOrd.sum [p] <c countableOrd.sum [q]
+  exact countableOrd_lt.sum (principalList_lt.head h)
+
+theorem countableOrd_ofPrincipal_eq {p q : principal} (h : p=pq) :
+    countableOrd.ofPrincipal p =c countableOrd.ofPrincipal q := by
+  change countableOrd.sum [p] =c countableOrd.sum [q]
+  exact countableOrd_eq.sum
+    (principalList_eq.cons h principalList_eq.nil)
+
+theorem principal_lt_of_ofPrincipal_lt {p q : principal}
+    (h : countableOrd.ofPrincipal p<ccountableOrd.ofPrincipal q) :
+    p <p q := by
+  change countableOrd.sum [p] <c countableOrd.sum [q] at h
+  cases h with
+  | sum hlist =>
+      cases hlist with
+      | head hp => exact hp
+      | tail _ htail => cases htail
+
+-- A coefficient-list bound applies to each member.
+theorem coefficientList_lt_of_mem
+    {cs : List countableOrd} {bound c : countableOrd}
+    (h : coefficientList_lt cs bound) (hc : c ∈ cs) :
+    c <c bound := by
+  induction cs generalizing bound c with
+  | nil => simp at hc
+  | cons x xs ih =>
+      cases h with
+      | cons hhead htail =>
+          simp only [List.mem_cons] at hc
+          rcases hc with rfl | hc
+          · exact hhead
+          · exact ih htail hc
+
+-- Custom equality of omega terms transports membership in their coefficient lists.
+theorem coefficients_mem_eq
+    {o1 o2 : omegaTerm} (h : o1=oo2) {c : countableOrd}
+    (hc : c ∈ omegaTerm.coefficients o1) :
+    ∃ d, d ∈ omegaTerm.coefficients o2 ∧ c =c d := by
+  cases h with
+  | zero =>
+      simp only [omegaTerm.coefficients, List.mem_singleton] at hc
+      subst c
+      exact ⟨
+        countableOrd.zero,
+        by simp [omegaTerm.coefficients],
+        countableOrd_eq_refl countableOrd.zero
+      ⟩
+  | @omegaNF alpha1 alpha2 gamma1 gamma2 beta1 beta2
+      hAlpha hBeta hGamma =>
+      simp only [
+        omegaTerm.coefficients,
+        List.mem_append,
+        List.mem_singleton
+      ] at hc
+      rcases hc with (hcAlpha | hcGamma) | hcBeta
+      · obtain ⟨d, hd, hcd⟩ := coefficients_mem_eq hAlpha hcAlpha
+        refine ⟨d, ?_, hcd⟩
+        simp only [
+          omegaTerm.coefficients,
+          List.mem_append,
+          List.mem_singleton
+        ]
+        exact Or.inl (Or.inl hd)
+      · obtain ⟨d, hd, hcd⟩ := coefficients_mem_eq hGamma hcGamma
+        refine ⟨d, ?_, hcd⟩
+        simp only [
+          omegaTerm.coefficients,
+          List.mem_append,
+          List.mem_singleton
+        ]
+        exact Or.inl (Or.inr hd)
+      · subst c
+        refine ⟨beta2, ?_, hBeta⟩
+        simp [omegaTerm.coefficients]
+  termination_by
+    omegaTerm_cmplx o1 + omegaTerm_cmplx o2
+    decreasing_by
+    all_goals
+      subst_vars
+      simp [omegaTerm_cmplx]
+      omega
+
+theorem coefficientList_lt_of_forall {cs : List countableOrd} {bound : countableOrd}
+        (h : ∀ c, c ∈ cs → c<cbound) : coefficientList_lt cs bound := by
+  induction cs with
+  | nil => exact coefficientList_lt.nil
+  | cons c cs ih =>
+      apply coefficientList_lt.cons
+      · exact h c List.mem_cons_self
+      · apply ih
+        intro d hd
+        exact h d (List.mem_cons_of_mem c hd)
+
+@[simp] theorem countableOrd_cmplx_ofPrincipal_psi (o : omegaTerm) :
+    countableOrd_cmplx (countableOrd.ofPrincipal (.psi o)) =
+      omegaTerm_cmplx o + 3 := by
+  simp [
+    countableOrd.ofPrincipal,
+    countableOrd_cmplx,
+    principalList_cmplx,
+    principal_cmplx
+  ]
+
+/-
+Before proving transitivity, we prove directly that strict comparison and our
+custom equality cannot both hold.  This is structural: no transitivity theorem
+is used here.  In particular, this lets the difficult principal case close an
+impossible equality branch without making a non-decreasing recursive call.
+-/
+mutual
+theorem countableOrd_lt_eq_false {a b : countableOrd}
+    (hlt : a<cb) (heq : a=cb) : False := by
+  cases hlt with
+  | sum hltList =>
+      cases heq with
+      | sum heqList =>
+          exact principalList_lt_eq_false hltList heqList
+  termination_by countableOrd_cmplx a + countableOrd_cmplx b
+  decreasing_by
+    all_goals
+      subst_vars
+      simp only [countableOrd_cmplx]
+      omega
+
+theorem principal_lt_eq_false {a b : principal}
+    (hlt : a <p b) (heq : a =p b) : False := by
+  cases hlt with
+  | psi_forward harg _ =>
+      cases heq with
+      | psi heqArg =>
+          exact omegaTerm_lt_eq_false harg heqArg
+  | psi_reverse_lt harg _ _ =>
+      cases heq with
+      | psi heqArg =>
+          exact omegaTerm_lt_eq_false harg (omegaTerm_eq_sym heqArg)
+  | psi_reverse_eq harg _ _ =>
+      cases heq with
+      | psi heqArg =>
+          exact omegaTerm_lt_eq_false harg (omegaTerm_eq_sym heqArg)
+  termination_by principal_cmplx a + principal_cmplx b
+  decreasing_by
+    all_goals
+      subst_vars
+      simp only [principal_cmplx]
+      omega
+
+theorem principalList_lt_eq_false {as bs : List principal}
+    (hlt : principalList_lt as bs) (heq : principalList_eq as bs) : False := by
+  cases hlt with
+  | nil => cases heq
+  | head hhead =>
+      cases heq with
+      | cons heqHead _ =>
+          exact principal_lt_eq_false hhead heqHead
+  | tail _ htail =>
+      cases heq with
+      | cons _ heqTail =>
+          exact principalList_lt_eq_false htail heqTail
+  termination_by principalList_cmplx as + principalList_cmplx bs
+  decreasing_by
+    all_goals
+      subst_vars
+      simp only [principalList_cmplx]
+      omega
+
+theorem omegaTerm_lt_eq_false {a b : omegaTerm}
+    (hlt : a <o b) (heq : a =o b) : False := by
+  cases hlt with
+  | zero => cases heq
+  | exponent hAlpha =>
+      cases heq with
+      | omegaNF heqAlpha _ _ =>
+          exact omegaTerm_lt_eq_false hAlpha heqAlpha
+  | coefficient _ hBeta =>
+      cases heq with
+      | omegaNF _ heqBeta _ =>
+          exact countableOrd_lt_eq_false hBeta heqBeta
+  | remainder _ _ hGamma =>
+      cases heq with
+      | omegaNF _ _ heqGamma =>
+          exact omegaTerm_lt_eq_false hGamma heqGamma
+  termination_by omegaTerm_cmplx a + omegaTerm_cmplx b
+  decreasing_by
+    all_goals
+      subst_vars
+      simp only [omegaTerm_cmplx]
+      omega
+end
+
+mutual
+
+theorem countableOrd_lt_trans {a b c : countableOrd}
+    (hab : a <c b) (hbc : b <c c) :
+    a <c c := by
+  cases hab with
+  | sum habList =>
+      cases hbc with
+      | sum hbcList =>
+          exact countableOrd_lt.sum
+            (principalList_lt_trans habList hbcList)
+  termination_by
+    countableOrd_cmplx a + countableOrd_cmplx b + countableOrd_cmplx c
+  decreasing_by
+    all_goals
+      subst_vars
+      try simp [countableOrd_cmplx, principalList_cmplx]
+      omega
+
+theorem countableOrd_lt_eq_trans {a b c : countableOrd}
+    (hab : a <c b) (hbc : b =c c) :
+    a <c c := by
+  cases hab with
+  | sum habList =>
+      cases hbc with
+      | sum hbcList =>
+          exact countableOrd_lt.sum
+            (principalList_lt_eq_trans habList hbcList)
+  termination_by
+    countableOrd_cmplx a + countableOrd_cmplx b + countableOrd_cmplx c
+  decreasing_by
+    all_goals
+      subst_vars
+      simp only [countableOrd_cmplx]
+      omega
+
+theorem countableOrd_eq_lt_trans {a b c : countableOrd}
+    (hab : a =c b) (hbc : b <c c) :
+    a <c c := by
+  cases hab with
+  | sum habList =>
+      cases hbc with
+      | sum hbcList =>
+          exact countableOrd_lt.sum
+            (principalList_eq_lt_trans habList hbcList)
+  termination_by
+    countableOrd_cmplx a + countableOrd_cmplx b + countableOrd_cmplx c
+  decreasing_by
+    all_goals
+      subst_vars
+      try simp [countableOrd_cmplx, principalList_cmplx]
+      omega
+
+theorem principal_lt_trans
+    {p1 p2 p3 : principal}
+    (h12 : p1 <p p2)
+    (h23 : p2 <p p3) :
+    p1 <p p3 := by
+  cases p1 with
+  | psi a =>
+    cases p2 with
+    | psi b =>
+      cases p3 with
+      | psi c =>
+        have h12c :
+            countableOrd.ofPrincipal (.psi a) <c
+              countableOrd.ofPrincipal (.psi b) :=
+          countableOrd_ofPrincipal_lt h12
+        have h23c :
+            countableOrd.ofPrincipal (.psi b) <c
+              countableOrd.ofPrincipal (.psi c) :=
+          countableOrd_ofPrincipal_lt h23
+
+        cases h12 with
+        | psi_forward h12Arg h12Coeff =>
+          cases h23 with
+          | psi_forward h23Arg _ =>
+              apply principal_lt.psi_forward
+              · exact omegaTerm_lt_trans h12Arg h23Arg
+              · apply coefficientList_lt_of_forall
+                intro d hd
+                have hd12 :
+                    d <c countableOrd.ofPrincipal (.psi b) :=
+                  coefficientList_lt_of_mem h12Coeff hd
+                exact countableOrd_lt_trans hd12 h23c
+
+          | psi_reverse_lt _ h23Mem h23Bound =>
+              cases omegaTerm_tri a c with
+              | inl hac =>
+                  apply principal_lt.psi_forward
+                  · exact hac
+                  · apply coefficientList_lt_of_forall
+                    intro d hd
+                    have hd12 :
+                        d <c countableOrd.ofPrincipal (.psi b) :=
+                      coefficientList_lt_of_mem h12Coeff hd
+                    exact countableOrd_lt_trans hd12 h23c
+
+              | inr hrest =>
+                  cases hrest with
+                  | inl hacEq =>
+                      obtain ⟨d, hd, hxd⟩ :=
+                        coefficients_mem_eq
+                          (omegaTerm_eq_sym hacEq)
+                          h23Mem
+                      have hdPsiB :
+                          d <c countableOrd.ofPrincipal (.psi b) :=
+                        coefficientList_lt_of_mem h12Coeff hd
+                      have hdX : d <c _ :=
+                        countableOrd_lt_trans hdPsiB h23Bound
+                      exact False.elim
+                        (countableOrd_lt_eq_false
+                          hdX
+                          (countableOrd_eq_sym hxd))
+
+                  | inr hca =>
+                      exact principal_lt.psi_reverse_lt
+                        hca
+                        h23Mem
+                        (countableOrd_lt_trans h12c h23Bound)
+
+          | psi_reverse_eq _ h23Mem h23Bound =>
+              cases omegaTerm_tri a c with
+              | inl hac =>
+                  apply principal_lt.psi_forward
+                  · exact hac
+                  · apply coefficientList_lt_of_forall
+                    intro d hd
+                    have hd12 :
+                        d <c countableOrd.ofPrincipal (.psi b) :=
+                      coefficientList_lt_of_mem h12Coeff hd
+                    exact countableOrd_lt_trans hd12 h23c
+
+              | inr hrest =>
+                  cases hrest with
+                  | inl hacEq =>
+                      obtain ⟨d, hd, hxd⟩ :=
+                        coefficients_mem_eq
+                          (omegaTerm_eq_sym hacEq)
+                          h23Mem
+                      have hdPsiB :
+                          d <c countableOrd.ofPrincipal (.psi b) :=
+                        coefficientList_lt_of_mem h12Coeff hd
+                      have hdX : d <c _ :=
+                        countableOrd_lt_eq_trans hdPsiB h23Bound
+                      exact False.elim
+                        (countableOrd_lt_eq_false
+                          hdX
+                          (countableOrd_eq_sym hxd))
+
+                  | inr hca =>
+                      exact principal_lt.psi_reverse_lt
+                        hca
+                        h23Mem
+                        (countableOrd_lt_eq_trans h12c h23Bound)
+
+        | psi_reverse_lt h12Arg h12Mem h12Bound =>
+          cases h23 with
+          | psi_forward _ h23Coeff =>
+              have hxPsiC :
+                  _ <c countableOrd.ofPrincipal (.psi c) :=
+                coefficientList_lt_of_mem h23Coeff h12Mem
+              have h13 :
+                  countableOrd.ofPrincipal (.psi a) <c
+                    countableOrd.ofPrincipal (.psi c) :=
+                countableOrd_lt_trans h12Bound hxPsiC
+              exact principal_lt_of_ofPrincipal_lt h13
+
+          | psi_reverse_lt h23Arg h23Mem h23Bound =>
+              exact principal_lt.psi_reverse_lt
+                (omegaTerm_lt_trans h23Arg h12Arg)
+                h23Mem
+                (countableOrd_lt_trans h12c h23Bound)
+
+          | psi_reverse_eq h23Arg h23Mem h23Bound =>
+              exact principal_lt.psi_reverse_lt
+                (omegaTerm_lt_trans h23Arg h12Arg)
+                h23Mem
+                (countableOrd_lt_eq_trans h12c h23Bound)
+
+        | psi_reverse_eq h12Arg h12Mem h12Bound =>
+          cases h23 with
+          | psi_forward _ h23Coeff =>
+              have hxPsiC :
+                  _ <c countableOrd.ofPrincipal (.psi c) :=
+                coefficientList_lt_of_mem h23Coeff h12Mem
+              have h13 :
+                  countableOrd.ofPrincipal (.psi a) <c
+                    countableOrd.ofPrincipal (.psi c) :=
+                countableOrd_eq_lt_trans h12Bound hxPsiC
+              exact principal_lt_of_ofPrincipal_lt h13
+
+          | psi_reverse_lt h23Arg h23Mem h23Bound =>
+              exact principal_lt.psi_reverse_lt
+                (omegaTerm_lt_trans h23Arg h12Arg)
+                h23Mem
+                (countableOrd_lt_trans h12c h23Bound)
+
+          | psi_reverse_eq h23Arg h23Mem h23Bound =>
+              exact principal_lt.psi_reverse_lt
+                (omegaTerm_lt_trans h23Arg h12Arg)
+                h23Mem
+                (countableOrd_lt_eq_trans h12c h23Bound)
+  termination_by
+    principal_cmplx p1 + principal_cmplx p2 + principal_cmplx p3 + 1
+  decreasing_by
+    all_goals
+      subst_vars
+      try have hd_cmplx := coefficient_cmplx_lt_of_mem hd
+      try have h12Mem_cmplx := coefficient_cmplx_lt_of_mem h12Mem
+      try have h23Mem_cmplx := coefficient_cmplx_lt_of_mem h23Mem
+      simp only [
+        principal_cmplx,
+        countableOrd_cmplx_ofPrincipal_psi
+      ] at *
+      omega
+
+theorem principal_lt_eq_trans
+    {p1 p2 p3 : principal}
+    (h12 : p1 <p p2)
+    (h23 : p2 =p p3) :
+    p1 <p p3 := by
+  cases p1 with
+  | psi a =>
+    cases p2 with
+    | psi b =>
+      cases p3 with
+      | psi c =>
+        cases h23 with
+        | psi hbc =>
+          have hPsiEq :
+              countableOrd.ofPrincipal (.psi b) =c
+                countableOrd.ofPrincipal (.psi c) :=
+            countableOrd_ofPrincipal_eq (principal_eq.psi hbc)
+
+          cases h12 with
+          | psi_forward h12Arg h12Coeff =>
+              apply principal_lt.psi_forward
+              · exact omegaTerm_lt_eq_trans h12Arg hbc
+              · apply coefficientList_lt_of_forall
+                intro d hd
+                have hd_cmplx : countableOrd_cmplx d + 2 < omegaTerm_cmplx a :=
+                  coefficient_cmplx_lt_of_mem hd
+                have hdPsiB : d <c countableOrd.ofPrincipal (.psi b) :=
+                  coefficientList_lt_of_mem h12Coeff hd
+                exact countableOrd_lt_eq_trans hdPsiB hPsiEq
+
+          | psi_reverse_lt h12Arg h12Mem h12Bound =>
+              obtain ⟨d, hd, hcd⟩ := coefficients_mem_eq hbc h12Mem
+              have h12Mem_cmplx : countableOrd_cmplx _ + 2 < omegaTerm_cmplx b :=
+                coefficient_cmplx_lt_of_mem h12Mem
+              have hd_cmplx : countableOrd_cmplx d + 2 < omegaTerm_cmplx c :=
+                coefficient_cmplx_lt_of_mem hd
+              exact principal_lt.psi_reverse_lt
+                    (omegaTerm_eq_lt_trans (omegaTerm_eq_sym hbc) h12Arg)
+                    hd
+                    (countableOrd_lt_eq_trans h12Bound hcd)
+
+          | psi_reverse_eq h12Arg h12Mem h12Bound =>
+              obtain ⟨d, hd, hcd⟩ := coefficients_mem_eq hbc h12Mem
+              have h12Mem_cmplx : countableOrd_cmplx _ + 2 < omegaTerm_cmplx b :=
+                coefficient_cmplx_lt_of_mem h12Mem
+              have hd_cmplx : countableOrd_cmplx d + 2 < omegaTerm_cmplx c :=
+                coefficient_cmplx_lt_of_mem hd
+              exact principal_lt.psi_reverse_eq
+                   (omegaTerm_eq_lt_trans (omegaTerm_eq_sym hbc) h12Arg)
+                    hd
+                   (countableOrd_eq_trans h12Bound hcd)
+  termination_by
+  principal_cmplx p1 +
+  principal_cmplx p2 +
+  principal_cmplx p3 + 1
+  decreasing_by
+    all_goals
+      subst_vars
+      simp only [
+        principal_cmplx,
+        countableOrd_cmplx_ofPrincipal_psi
+      ]
+      omega
+
+theorem principal_eq_lt_trans
+    {p1 p2 p3 : principal}
+    (h12 : p1 =p p2)
+    (h23 : p2 <p p3) :
+    p1 <p p3 := by
+  cases p1 with
+  | psi a =>
+    cases p2 with
+    | psi b =>
+      cases p3 with
+      | psi c =>
+        cases h12 with
+        | psi hab =>
+          have hPsiEq :
+              countableOrd.ofPrincipal (.psi a) =c
+                countableOrd.ofPrincipal (.psi b) :=
+            countableOrd_ofPrincipal_eq (principal_eq.psi hab)
+
+          cases h23 with
+          | psi_forward h23Arg h23Coeff =>
+              apply principal_lt.psi_forward
+              · exact omegaTerm_eq_lt_trans hab h23Arg
+              · apply coefficientList_lt_of_forall
+                intro d hd
+                obtain ⟨e, he, hde⟩ :=
+                  coefficients_mem_eq hab hd
+                have hePsiC :
+                    e <c countableOrd.ofPrincipal (.psi c) :=
+                  coefficientList_lt_of_mem h23Coeff he
+                exact countableOrd_eq_lt_trans hde hePsiC
+
+          | psi_reverse_lt h23Arg h23Mem h23Bound =>
+              exact principal_lt.psi_reverse_lt
+                (omegaTerm_lt_eq_trans
+                  h23Arg
+                  (omegaTerm_eq_sym hab))
+                h23Mem
+                (countableOrd_eq_lt_trans hPsiEq h23Bound)
+
+          | psi_reverse_eq h23Arg h23Mem h23Bound =>
+              exact principal_lt.psi_reverse_eq
+                (omegaTerm_lt_eq_trans
+                  h23Arg
+                  (omegaTerm_eq_sym hab))
+                h23Mem
+                (countableOrd_eq_trans hPsiEq h23Bound)
+  termination_by
+    principal_cmplx p1 + principal_cmplx p2 + principal_cmplx p3 + 1
+  decreasing_by
+    all_goals
+      subst_vars
+
+      try have hd_cmplx := coefficient_cmplx_lt_of_mem hd
+      try have he_cmplx := coefficient_cmplx_lt_of_mem he
+      try have h23Mem_cmplx :=
+        coefficient_cmplx_lt_of_mem h23Mem
+
+      simp only [
+        principal_cmplx,
+        countableOrd_cmplx_ofPrincipal_psi
+      ]
+
+      omega
+
+theorem principalList_lt_trans
+    {pl1 pl2 pl3 : List principal}
+    (h12 : principalList_lt pl1 pl2)
+    (h23 : principalList_lt pl2 pl3) :
+    principalList_lt pl1 pl3 := by
+  cases h12 with
+  | nil =>
+      cases h23 with
+      | head _ => exact principalList_lt.nil
+      | tail _ _ => exact principalList_lt.nil
+  | head h12Head =>
+      cases h23 with
+      | head h23Head =>
+          exact principalList_lt.head
+            (principal_lt_trans h12Head h23Head)
+      | tail h23Eq _ =>
+          exact principalList_lt.head
+            (principal_lt_eq_trans h12Head h23Eq)
+  | tail h12Eq h12Tail =>
+      cases h23 with
+      | head h23Head =>
+          exact principalList_lt.head
+            (principal_eq_lt_trans h12Eq h23Head)
+      | tail h23Eq h23Tail =>
+          exact principalList_lt.tail
+            (principal_eq_trans h12Eq h23Eq)
+            (principalList_lt_trans h12Tail h23Tail)
+  termination_by
+    principalList_cmplx pl1 + principalList_cmplx pl2 + principalList_cmplx pl3
+  decreasing_by
+    all_goals
+      subst_vars
+      try simp [principalList_cmplx]
+      omega
+
+theorem principalList_lt_eq_trans
+    {pl1 pl2 pl3 : List principal}
+    (h12 : principalList_lt pl1 pl2)
+    (h23 : principalList_eq pl2 pl3) :
+    principalList_lt pl1 pl3 := by
+  cases h12 with
+  | nil =>
+      cases h23 with
+      | cons _ _ => exact principalList_lt.nil
+  | head h12Head =>
+      cases h23 with
+      | cons h23HeadEq _ =>
+          exact principalList_lt.head
+            (principal_lt_eq_trans h12Head h23HeadEq)
+  | tail h12HeadEq h12Tail =>
+      cases h23 with
+      | cons h23HeadEq h23TailEq =>
+          exact principalList_lt.tail
+            (principal_eq_trans h12HeadEq h23HeadEq)
+            (principalList_lt_eq_trans h12Tail h23TailEq)
+  termination_by
+    principalList_cmplx pl1 + principalList_cmplx pl2 + principalList_cmplx pl3
+  decreasing_by
+    all_goals
+      subst_vars
+      try simp [principalList_cmplx]
+      omega
+
+theorem principalList_eq_lt_trans
+    {pl1 pl2 pl3 : List principal}
+    (h12 : principalList_eq pl1 pl2)
+    (h23 : principalList_lt pl2 pl3) :
+    principalList_lt pl1 pl3 := by
+  cases h12 with
+  | nil =>
+      cases h23 with
+      | nil => exact principalList_lt.nil
+  | cons h12Head h12Tail =>
+      cases h23 with
+      | head h23Head =>
+          exact principalList_lt.head
+            (principal_eq_lt_trans h12Head h23Head)
+      | tail h23HeadEq h23Tail =>
+          exact principalList_lt.tail
+            (principal_eq_trans h12Head h23HeadEq)
+            (principalList_eq_lt_trans h12Tail h23Tail)
+  termination_by
+    principalList_cmplx pl1 + principalList_cmplx pl2 + principalList_cmplx pl3
+  decreasing_by
+    all_goals
+      subst_vars
+      try simp [principalList_cmplx]
+      omega
+
+theorem omegaTerm_lt_eq_trans
+    {o1 o2 o3 : omegaTerm}
+    (h12 : o1 <o o2) (h23 : o2 =o o3) :
+    o1 <o o3 := by
+  cases h12 with
+  | zero =>
+      cases h23 with
+      | omegaNF _ _ _ => exact omegaTerm_lt.zero
+  | exponent h12Alpha =>
+      cases h23 with
+      | omegaNF h23Alpha _ _ =>
+          exact omegaTerm_lt.exponent
+            (omegaTerm_lt_eq_trans h12Alpha h23Alpha)
+  | coefficient h12AlphaEq h12Coeff =>
+      cases h23 with
+      | omegaNF h23Alpha h23Coeff _ =>
+          exact omegaTerm_lt.coefficient
+            (omegaTerm_eq_trans h12AlphaEq h23Alpha)
+            (countableOrd_lt_eq_trans h12Coeff h23Coeff)
+  | remainder h12Alpha h12Beta h12Gamma =>
+      cases h23 with
+      | omegaNF h23Alpha h23Beta h23Gamma =>
+          exact omegaTerm_lt.remainder
+            (omegaTerm_eq_trans h12Alpha h23Alpha)
+            (countableOrd_eq_trans h12Beta h23Beta)
+            (omegaTerm_lt_eq_trans h12Gamma h23Gamma)
+  termination_by
+    omegaTerm_cmplx o1 + omegaTerm_cmplx o2 + omegaTerm_cmplx o3
+  decreasing_by
+    all_goals
+      subst_vars
+      try simp [
+        omegaTerm_cmplx,
+        countableOrd_cmplx,
+        principalList_cmplx
+      ]
+      omega
+
+theorem omegaTerm_eq_lt_trans
+    {o1 o2 o3 : omegaTerm}
+    (h12 : o1 =o o2) (h23 : o2 <o o3) :
+    o1 <o o3 := by
+  cases h12 with
+  | zero =>
+      cases h23 with
+      | zero => exact omegaTerm_lt.zero
+  | omegaNF h12Alpha h12Beta h12Gamma =>
+      cases h23 with
+      | exponent h23Alpha =>
+          exact omegaTerm_lt.exponent
+            (omegaTerm_eq_lt_trans h12Alpha h23Alpha)
+      | coefficient h23Alpha h23Beta =>
+          exact omegaTerm_lt.coefficient
+            (omegaTerm_eq_trans h12Alpha h23Alpha)
+            (countableOrd_eq_lt_trans h12Beta h23Beta)
+      | remainder h23Alpha h23Beta h23Gamma =>
+          exact omegaTerm_lt.remainder
+            (omegaTerm_eq_trans h12Alpha h23Alpha)
+            (countableOrd_eq_trans h12Beta h23Beta)
+            (omegaTerm_eq_lt_trans h12Gamma h23Gamma)
+  termination_by
+    omegaTerm_cmplx o1 + omegaTerm_cmplx o2 + omegaTerm_cmplx o3
+  decreasing_by
+    all_goals
+      subst_vars
+      try simp [
+        omegaTerm_cmplx,
+        countableOrd_cmplx,
+        principalList_cmplx
+      ]
+      omega
+
+theorem omegaTerm_lt_trans
+    {o1 o2 o3 : omegaTerm}
+    (h12 : o1 <o o2) (h23 : o2 <o o3) :
+    o1 <o o3 := by
+  cases h12 with
+  | zero =>
+      cases h23 with
+      | exponent _ => exact omegaTerm_lt.zero
+      | coefficient _ _ => exact omegaTerm_lt.zero
+      | remainder _ _ _ => exact omegaTerm_lt.zero
+  | exponent h12Alpha =>
+      cases h23 with
+      | exponent h23Alpha =>
+          exact omegaTerm_lt.exponent
+            (omegaTerm_lt_trans h12Alpha h23Alpha)
+      | coefficient h23Alpha _ =>
+          exact omegaTerm_lt.exponent
+            (omegaTerm_lt_eq_trans h12Alpha h23Alpha)
+      | remainder h23Alpha _ _ =>
+          exact omegaTerm_lt.exponent
+            (omegaTerm_lt_eq_trans h12Alpha h23Alpha)
+  | coefficient h12Alpha h12Beta =>
+      cases h23 with
+      | exponent h23Alpha =>
+          exact omegaTerm_lt.exponent
+            (omegaTerm_eq_lt_trans h12Alpha h23Alpha)
+      | coefficient h23Alpha h23Beta =>
+          exact omegaTerm_lt.coefficient
+            (omegaTerm_eq_trans h12Alpha h23Alpha)
+            (countableOrd_lt_trans h12Beta h23Beta)
+      | remainder h23Alpha h23Beta _ =>
+          exact omegaTerm_lt.coefficient
+            (omegaTerm_eq_trans h12Alpha h23Alpha)
+            (countableOrd_lt_eq_trans h12Beta h23Beta)
+  | remainder h12Alpha h12Beta h12Gamma =>
+      cases h23 with
+      | exponent h23Alpha =>
+          exact omegaTerm_lt.exponent
+            (omegaTerm_eq_lt_trans h12Alpha h23Alpha)
+      | coefficient h23Alpha h23Beta =>
+          exact omegaTerm_lt.coefficient
+            (omegaTerm_eq_trans h12Alpha h23Alpha)
+            (countableOrd_eq_lt_trans h12Beta h23Beta)
+      | remainder h23Alpha h23Beta h23Gamma =>
+          exact omegaTerm_lt.remainder
+            (omegaTerm_eq_trans h12Alpha h23Alpha)
+            (countableOrd_eq_trans h12Beta h23Beta)
+            (omegaTerm_lt_trans h12Gamma h23Gamma)
+  termination_by
+    omegaTerm_cmplx o1 + omegaTerm_cmplx o2 + omegaTerm_cmplx o3
+  decreasing_by
+    all_goals
+      subst_vars
+      try simp [
+        omegaTerm_cmplx,
+        countableOrd_cmplx,
+        principalList_cmplx
+      ]
+      omega
+end
+
+--===============================================================================
+-- Assymmetry of <
+--===============================================================================
+theorem countableOrd_lt_asymm {a b : countableOrd} (h : a<cb) : ¬ b<ca := by
+  intro hba
+  exact countableOrd_lt_irrefl (countableOrd_lt_trans h hba)
+
+theorem principal_lt_asymm {p1 p2 : principal} (h : p1<pp2) : ¬ p2<pp1 := by
+  intro h21
+  exact principal_lt_irrefl (principal_lt_trans h h21)
+theorem principalList_lt_asymm {pList1 pList2 : List principal}
+        (h : principalList_lt pList1 pList2) :
+        ¬ principalList_lt pList2 pList1 := by
+  intro hList21
+  exact principalList_lt_irrefl (principalList_lt_trans h hList21)
+theorem omegaTerm_asymm {o1 o2 : omegaTerm} (h : o1<oo2) : ¬ o2<oo1:= by
+  intro h21
+  exact omegaTerm_lt_irrefl (omegaTerm_lt_trans h h21)
+
+/-
+We have proven the irreflexitivity, asymmetry, and the transitivity of our defined comparison
+relation. We also have the trichotomy of the relation. This concludes the justification for
+our relation to be a linear ordering. We proceed to well-foundedness. Note, we were able to
+show the linear ordering of our raw data type of countableOrd, principal, principalList,
+and omegaTerm so a stronger version than that for normal data types.
+-/
 
 
 --===============================================================================
@@ -678,6 +1489,17 @@ abbrev NormalPrincipalList :=
   {ps : List principal // principalList_normal ps}
 def NormalCountableOrd_lt (a b : NormalCountableOrd) : Prop := a.1 <c b.1
 def NormalCountableOrd_eq (a b : NormalCountableOrd) : Prop := a.1 =c b.1
+def NormalPrincipal_lt (a b : NormalPrincipal) : Prop := a.1 <p b.1
+def NormalPrincipal_eq
+    (a b : NormalPrincipal) : Prop :=
+  a.1 =p b.1
+def NormalOmegaTerm_lt (a b : NormalOmegaTerm) : Prop := a.1 <o b.1
+def NormalOmegaTerm_eq (a b : NormalOmegaTerm) : Prop := a.1 =o b.1
+def NormalPrincipalList_lt (as bs : NormalPrincipalList) : Prop :=
+  principalList_lt as.1 bs.1
+def NormalPrincipalList_eq
+    (as bs : NormalPrincipalList) : Prop :=
+  principalList_eq as.1 bs.1
 infix:50 " <nc " => NormalCountableOrd_lt
 infix:50 " =nc " => NormalCountableOrd_eq
 theorem NormalCountableOrd_tri (a b : NormalCountableOrd) :
