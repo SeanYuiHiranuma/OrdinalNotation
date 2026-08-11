@@ -763,11 +763,10 @@ theorem coefficients_mem_eq
         simp [omegaTerm.coefficients]
   termination_by
     omegaTerm_cmplx o1 + omegaTerm_cmplx o2
-    decreasing_by
+  decreasing_by
     all_goals
       subst_vars
-      simp [omegaTerm_cmplx]
-      omega
+      simp [omegaTerm_cmplx] <;> omega
 
 theorem coefficientList_lt_of_forall {cs : List countableOrd} {bound : countableOrd}
         (h : ∀ c, c ∈ cs → c<cbound) : coefficientList_lt cs bound := by
@@ -879,7 +878,7 @@ end
 mutual
 
 theorem countableOrd_lt_trans {a b c : countableOrd}
-    (hab : a <c b) (hbc : b <c c) :
+    (hab : a<cb) (hbc : b<cc) :
     a <c c := by
   cases hab with
   | sum habList =>
@@ -896,7 +895,7 @@ theorem countableOrd_lt_trans {a b c : countableOrd}
       omega
 
 theorem countableOrd_lt_eq_trans {a b c : countableOrd}
-    (hab : a <c b) (hbc : b =c c) :
+    (hab : a<cb) (hbc : b=cc) :
     a <c c := by
   cases hab with
   | sum habList =>
@@ -1458,7 +1457,7 @@ theorem principalList_lt_asymm {pList1 pList2 : List principal}
         ¬ principalList_lt pList2 pList1 := by
   intro hList21
   exact principalList_lt_irrefl (principalList_lt_trans h hList21)
-theorem omegaTerm_asymm {o1 o2 : omegaTerm} (h : o1<oo2) : ¬ o2<oo1:= by
+theorem omegaTerm_lt_asymm {o1 o2 : omegaTerm} (h : o1<oo2) : ¬ o2<oo1:= by
   intro h21
   exact omegaTerm_lt_irrefl (omegaTerm_lt_trans h h21)
 
@@ -1502,6 +1501,13 @@ def NormalPrincipalList_eq
   principalList_eq as.1 bs.1
 infix:50 " <nc " => NormalCountableOrd_lt
 infix:50 " =nc " => NormalCountableOrd_eq
+infix:50 "<np" => NormalPrincipal_lt
+infix:50 "=np" => NormalPrincipal_eq
+infix:50 "<no" => NormalOmegaTerm_lt
+infix:50 "=no" => NormalOmegaTerm_eq
+
+-- Prove the linear ordering for normal datas
+-- Trichotomy
 theorem NormalCountableOrd_tri (a b : NormalCountableOrd) :
     a <nc b ∨ a =nc b ∨ b <nc a := by
   exact countableOrd_tri a.1 b.1
@@ -1515,3 +1521,346 @@ theorem NormalPrincipalList_tri (as bs : NormalPrincipalList) :
     principalList_lt as.1 bs.1 ∨ principalList_eq as.1 bs.1 ∨
     principalList_lt bs.1 as.1 := by
   exact principalList_tri as.1 bs.1
+-- Irreflexivity
+theorem NormalCountableOrd_irrefl (a : NormalCountableOrd) :
+    ¬ a <nc a := by
+  intro h
+  exact countableOrd_lt_irrefl h
+theorem NormalPrincipal_irrefl (p : NormalPrincipal) :
+    ¬ p <np p := by
+  intro h
+  exact principal_lt_irrefl h
+theorem NormalPrincipalList_irrefl (pl : NormalPrincipalList) :
+    ¬ (NormalPrincipalList_lt pl pl) :=  by
+  intro h
+  exact principalList_lt_irrefl h
+theorem NormalOmegaTerm_irrefl (o : NormalOmegaTerm) :
+    ¬ o<noo := by
+  intro h
+  exact omegaTerm_lt_irrefl h
+-- Transitivity
+theorem NormalCountableOrd_trans {a b c : NormalCountableOrd} (hab : a <nc b) (hbc : b <nc c) :
+    a <nc c := by
+  exact countableOrd_lt_trans hab hbc
+theorem NormalPrincipal_trans {p1 p2 p3 : NormalPrincipal} (h12 : p1<npp2) (h23 : p2<npp3) :
+    p1 <np p3 := by
+  exact principal_lt_trans h12 h23
+theorem NormalPrincipalList_trans {pl1 pl2 pl3 : NormalPrincipalList}
+        (h12 : NormalPrincipalList_lt pl1 pl2)
+        (h23 : NormalPrincipalList_lt pl2 pl3) : NormalPrincipalList_lt pl1 pl3 := by
+  exact principalList_lt_trans h12 h23
+theorem NormalOmegaTerm_trans {o1 o2 o3 : NormalOmegaTerm}
+        (h12 : o1<noo2) (h23 : o2<noo3) : o1 <no o3 := by
+  exact omegaTerm_lt_trans h12 h23
+-- Assymetry
+theorem NormalCountableOrd_asymm {a b : NormalCountableOrd} (h : a <nc b) : ¬ b <nc a := by
+  intro con
+  exact countableOrd_lt_asymm (a := a.1) (b := b.1) h con
+theorem NormalPrincipal_asymm {p1 p2 : NormalPrincipal} (h : p1<npp2) : ¬ p2 <np p1 := by
+  intro con
+  exact principal_lt_asymm (p1 := p1.1) (p2 := p2.1) h con
+theorem NormalPrincipalList_asymm {pl1 pl2 : NormalPrincipalList}
+       (h : NormalPrincipalList_lt pl1 pl2) :
+        ¬ NormalPrincipalList_lt pl2 pl1 := by
+  intro con
+  exact principalList_lt_asymm (pList1 := pl1.1) (pList2 := pl2.1) h con
+theorem NormalOmegaTerm_asymm {o1 o2 : NormalOmegaTerm} (h : o1<noo2) : ¬ o2 <no o1 := by
+  intro con
+  exact omegaTerm_lt_asymm (o1 := o1.1) (o2 := o2.1) h con
+
+--===============================================================================
+-- Well-Foundedness
+--===============================================================================
+--Preliminaries
+/-
+We lay out some useful lemmas, just like the < ε₀ case for later accessibility lemmas
+-/
+-- Given a normal principal list, its head is normal
+theorem NormalPrincipalList_normalHead {p : principal} {ps : List principal}
+       (h : principalList_normal (p :: ps)) : principal_normal p := by
+  cases h with
+  | singleton h1 => exact h1
+  | cons h2 h3 => exact h2
+-- Given a normal principal list, its tail is normal
+theorem NormalPrincipalList_normalTail {p : principal} {ps : List principal}
+       (h : principalList_normal (p :: ps)) : principalList_normal ps := by
+  cases h with
+  | singleton h1 => exact principalList_normal.nil
+  | cons h2 h3 => exact h3
+-- Given a normal principal list, the head bounds all the elements of the list from above
+theorem principalList_normal_tail_bounded {p : principal} {ps : List principal}
+        (h : principalList_normal (p :: ps)) :
+        ∀ q ∈ ps, q ≤p p := by
+  induction ps generalizing p with
+  | nil =>
+      intro q hq
+      cases hq
+  | cons q qs ih =>
+      cases h with
+      | cons _ htail hpq =>
+          intro r hr
+          simp only [List.mem_cons] at hr
+          rcases hr with rfl | hr
+          · rcases hpq with hqp | hpq
+            · exact Or.inl hqp
+            · exact Or.inr (principal_eq_sym hpq)
+          · have hrq : r ≤p q := ih htail r hr
+            rcases hrq with hrq | hrq
+            · rcases hpq with hqp | hpq
+              · exact Or.inl (principal_lt_trans hrq hqp)
+              · exact Or.inl
+                  (principal_lt_eq_trans hrq (principal_eq_sym hpq))
+            · rcases hpq with hqp | hpq
+              · exact Or.inl (principal_eq_lt_trans hrq hqp)
+              · exact Or.inr
+                  (principal_eq_trans hrq (principal_eq_sym hpq))
+-- Given omegaTerm (Ω^{α}β+γ), all α, β, γ are normal in their respective data type
+theorem omegaTerm_normal_alpha {alpha gamma : omegaTerm} {beta : countableOrd}
+        (ho : omegaTerm_normal (.omegaNF alpha beta gamma)) :
+        omegaTerm_normal alpha := by
+  cases ho with
+  | omegaNF h1 _ _ _ _ => exact h1
+theorem omegaTerm_normal_beta {alpha gamma : omegaTerm} {beta : countableOrd}
+        (ho : omegaTerm_normal (.omegaNF alpha beta gamma)) :
+        countableOrd_normal beta := by
+  cases ho with
+  | omegaNF _ h1 _ _ _ => exact h1
+theorem omegaTerm_normal_gamma {alpha gamma : omegaTerm} {beta : countableOrd}
+        (ho : omegaTerm_normal (.omegaNF alpha beta gamma)) :
+        omegaTerm_normal gamma := by
+  cases ho with
+  | omegaNF _ _ h1 _ _ => exact h1
+-- Any element of the cofficients of a normal omegaTerm is normal
+theorem coefficient_normal_of_mem {o : omegaTerm} {c : countableOrd}
+    (ho : omegaTerm_normal o) (hc : c ∈ omegaTerm.coefficients o) :
+    countableOrd_normal c := by
+  cases o with
+  | zero =>
+      simp only [omegaTerm.coefficients, List.mem_singleton] at hc
+      subst c
+      exact countableOrd_zero_normal
+  | omegaNF alpha beta gamma =>
+      have hAlpha : omegaTerm_normal alpha := omegaTerm_normal_alpha ho
+      have hBeta : countableOrd_normal beta := omegaTerm_normal_beta ho
+      have hGamma : omegaTerm_normal gamma := omegaTerm_normal_gamma ho
+      simp only [omegaTerm.coefficients, List.mem_append, List.mem_singleton] at hc
+      rcases hc with (hcAlpha | hcGamma) | hcBeta
+      · exact coefficient_normal_of_mem hAlpha hcAlpha
+      · exact coefficient_normal_of_mem hGamma hcGamma
+      · subst c
+        exact hBeta
+  termination_by omegaTerm_cmplx o
+  decreasing_by
+    all_goals
+      subst_vars
+      simp [omegaTerm_cmplx] <;> omega
+
+/- If a NormalCountableOrd is accessible, any of that less than the original
+   is accessible. Ones follow are analogous. -/
+theorem NormalCountableOrd_acc_of_lt {a b : NormalCountableOrd}
+        (ha : Acc NormalCountableOrd_lt a) (hba : b <nc a) :
+        Acc NormalCountableOrd_lt b :=
+  ha.inv hba
+theorem NormalPrincipal_acc_of_lt {p1 p2 : NormalPrincipal}
+        (h1 : Acc NormalPrincipal_lt p1) (h21 : p2<npp1) :
+        Acc NormalPrincipal_lt p2 :=
+  h1.inv h21
+theorem NormalPrincipalList_acc_of_lt {pl1 pl2 : NormalPrincipalList}
+        (h1 : Acc NormalPrincipalList_lt pl1) (h21 : NormalPrincipalList_lt pl2 pl1) :
+        Acc NormalPrincipalList_lt pl2 :=
+  h1.inv h21
+theorem NormalOmegaTerm_acc_of_lt {o1 o2 : NormalOmegaTerm}
+        (h1 : Acc NormalOmegaTerm_lt o1) (h21 : NormalOmegaTerm_lt o2 o1) :
+        Acc NormalOmegaTerm_lt o2 :=
+  h1.inv h21
+theorem NormalCountableOrd_acc_of_eq {a b : NormalCountableOrd}
+        (ha : Acc NormalCountableOrd_lt a) (hab : a =nc b) : Acc NormalCountableOrd_lt b := by
+  apply Acc.intro --∀c:NormalCountableOrd, c <nc b → Acc <nc c
+  intro c hcb -- Acc <nc c
+  apply ha.inv -- c <nc a
+  exact countableOrd_lt_eq_trans hcb (countableOrd_eq_sym hab)
+
+
+
+def principalList_bounded_by (p : principal) (ps : List principal) : Prop :=
+  ∀ q, q ∈ ps → q ≤p p
+theorem NormalPrincipalList_nil_acc : Acc NormalPrincipalList_lt ⟨[], principalList_normal.nil⟩
+        := by
+  apply Acc.intro
+  rintro ⟨ps, hps⟩ hlt
+  change principalList_lt ps [] at hlt
+  cases hlt
+theorem NormalPrincipal_acc_of_eq {p q : NormalPrincipal} (hp : Acc NormalPrincipal_lt p)
+        (hpq : p=npq) : Acc NormalPrincipal_lt q := by
+  apply Acc.intro -- ∀r<npq, Acc NormalPrincipal_lt r
+  intro r hrq
+  apply hp.inv
+  exact principal_lt_eq_trans hrq (principal_eq_sym hpq)
+theorem NormalPrincipalList_cons_acc (p : NormalPrincipal) (hp : Acc NormalPrincipal_lt p)
+        (hsmall : ∀q:NormalPrincipal, q<npp -> ∀qs : NormalPrincipalList,
+                  principalList_bounded_by q.1 qs.1 → Acc NormalPrincipalList_lt qs)
+        (ps : NormalPrincipalList)
+        (hps : Acc NormalPrincipalList_lt ps)
+        (hcons : principalList_normal (p.1 :: ps.1)) :
+        Acc NormalPrincipalList_lt ⟨p.1 :: ps.1, hcons⟩ := by
+  induction hps generalizing p with
+  | intro xs hxs ih => -- xs:any<ps, hxs:Acc NormalPrincipalList_lt xs,
+    apply Acc.intro; rintro ⟨ys, hys_normal⟩ hlt
+    cases ys with
+    | nil => exact NormalPrincipalList_nil_acc
+    | cons q qs =>
+      change principalList_lt (q :: qs) (p.1 :: xs.1) at hlt
+      cases hlt with
+      | head hqp =>
+        let qN : NormalPrincipal :=
+            ⟨q, NormalPrincipalList_normalHead hys_normal⟩
+        apply hsmall qN hqp ⟨q :: qs, hys_normal⟩
+        intro r hr
+        simp only [List.mem_cons] at hr
+        rcases hr with rfl | hr
+        · exact Or.inr (principal_eq_refl r)
+        · exact principalList_normal_tail_bounded hys_normal r hr
+      | tail heq htail =>
+        let qN : NormalPrincipal :=
+            ⟨q, NormalPrincipalList_normalHead hys_normal⟩
+        let qsN : NormalPrincipalList :=
+            ⟨qs, NormalPrincipalList_normalTail hys_normal⟩
+        have htailN : NormalPrincipalList_lt qsN xs := htail
+        have hqAcc : Acc NormalPrincipal_lt qN := by
+          apply NormalPrincipal_acc_of_eq hp
+          exact principal_eq_sym heq
+        have hsmallQ : ∀ r : NormalPrincipal, r <np qN →
+                       ∀ rs : NormalPrincipalList,
+                       principalList_bounded_by r.1 rs.1 →
+                       Acc NormalPrincipalList_lt rs := by
+          intro r hr rs hrs
+          apply hsmall r
+          · exact principal_lt_eq_trans hr heq
+          · exact hrs
+        exact ih qsN htailN
+                qN
+                hqAcc
+                hsmallQ
+                hys_normal
+
+theorem NormalPrincipalList_acc_of_bound_acc (p : NormalPrincipal) (hp : Acc NormalPrincipal_lt p)
+    (ps : NormalPrincipalList) (hbound : principalList_bounded_by p.1 ps.1) :
+    Acc NormalPrincipalList_lt ps := by
+  revert ps -- Goal is ∀ps:NormalPrincipalList, principalList_bounded_by p.1 ps.1 →
+            -- Acc NormalPrincipalList_lt ps
+  induction hp with
+  | intro p hpred ih => -- hpred:∀q<p, Acc NormalPrincipal_lt q
+                        -- ih : ∀q,q<p → ∀ps, principalList_bounded_by p.1 ps.1
+                        --      → Acc NormalPrincipalList_lt ps
+    rintro ⟨ps, hps⟩ hbound -- Goal: Acc NormalPrincipalList_lt ⟨ps, hps⟩
+    have proveList : ∀xs : List principal, ∀hxs : principalList_normal xs,
+                     principalList_bounded_by p.1 xs
+                     → Acc NormalPrincipalList_lt ⟨xs, hxs⟩ := by
+      intro xs
+      induction xs with
+      | nil => intro hxs hbound; exact NormalPrincipalList_nil_acc
+      -- ih : ∀hqs : principalList_normal qs, principalList_bounded_by p.1 qs →
+      --      Acc NormalPrincipalList_lt ⟨qs, hqs⟩
+      | cons q qs ihTail =>
+        intro hnormal hbound -- hnormal:principalList_normal (q :: qs),
+                             -- hbound:principalList_bounded_by p.1 (q :: qs)
+        have hq_normal : principal_normal q := NormalPrincipalList_normalHead hnormal
+        have hqs_normal : principalList_normal qs := NormalPrincipalList_normalTail hnormal
+        let qN : NormalPrincipal := ⟨q, hq_normal⟩
+        let qsN : NormalPrincipalList := ⟨qs, hqs_normal⟩
+        have htailBound : principalList_bounded_by p.1 qs := by
+          intro r hr
+          exact hbound r (List.mem_cons_of_mem q hr)
+        have htailAcc : Acc NormalPrincipalList_lt qsN :=
+          ihTail hqs_normal htailBound
+        have hqle : q ≤p p.1 :=
+          hbound q List.mem_cons_self
+        rcases hqle with hqp | hqeqp
+        · have hqAcc : Acc NormalPrincipal_lt qN :=
+               hpred qN hqp
+          have hsmallQ :
+                  ∀ r : NormalPrincipal, r <np qN →
+                    ∀ rs : NormalPrincipalList,
+                      principalList_bounded_by r.1 rs.1 →
+                      Acc NormalPrincipalList_lt rs := by
+                intro r hr rs hrs
+                apply ih r
+                · exact principal_lt_trans hr hqp
+                · exact hrs
+          exact NormalPrincipalList_cons_acc
+                qN
+                hqAcc
+                hsmallQ
+                qsN
+                htailAcc
+                hnormal
+        · have hpAcc : Acc NormalPrincipal_lt p :=
+            Acc.intro p hpred
+          have hqAcc : Acc NormalPrincipal_lt qN := by
+            apply NormalPrincipal_acc_of_eq hpAcc
+            exact principal_eq_sym hqeqp
+          have hsmallQ :
+              ∀ r : NormalPrincipal, r <np qN →
+                ∀ rs : NormalPrincipalList,
+                  principalList_bounded_by r.1 rs.1 →
+                  Acc NormalPrincipalList_lt rs := by
+            intro r hr rs hrs
+            apply ih r
+            · exact principal_lt_eq_trans hr hqeqp
+            · exact hrs
+          exact NormalPrincipalList_cons_acc
+            qN
+            hqAcc
+            hsmallQ
+            qsN
+            htailAcc
+            hnormal
+    exact proveList ps hps hbound
+
+theorem NormalPrincipalList_acc {p : principal} {ps : List principal}
+        (hnormal : principalList_normal (p :: ps))
+        (hp : Acc NormalPrincipal_lt ⟨p, NormalPrincipalList_normalHead hnormal⟩) :
+        Acc NormalPrincipalList_lt ⟨p :: ps, hnormal⟩ := by
+  let pnormal : NormalPrincipal := ⟨p, NormalPrincipalList_normalHead hnormal⟩
+  apply NormalPrincipalList_acc_of_bound_acc pnormal hp ⟨p :: ps, hnormal⟩
+  -- Goal now is ∀q, q∈p::ps, q ≤p p
+  intro q hq
+  simp only [List.mem_cons] at hq -- hq is q=p ∨ q∈ps
+  rcases hq with hqp | hq
+  · subst q
+    exact Or.inr (principal_eq_refl p)
+  · exact principalList_normal_tail_bounded hnormal q hq
+theorem NormalCountableOrd_acc {ps : NormalPrincipalList} (hps : Acc NormalPrincipalList_lt ps) :
+        Acc NormalCountableOrd_lt ⟨countableOrd.sum ps, countableOrd_normal.sum ps.2⟩ := by
+  induction hps with
+  -- hpred : ∀qs, qs<ps → Acc NormalPrincipalList_lt qs
+  -- ih : ∀qs, qs<ps → Acc NormalCountableOrd_lt ⟨countableOrd.sum q.1,countableOrd_normal.sum qs.2⟩
+  | intro ps hpred ih =>
+    apply Acc.intro -- Goal changed : ∀qs:NormalCountableOrd, qs<⟨ps,--⟩ → Acc -- qs
+    rintro ⟨a, ha⟩ hlt
+    cases a with
+    | sum qs =>
+      cases ha with
+      | sum hqsNormal =>
+          cases hlt with
+          | sum hqsLt =>
+              exact ih ⟨qs, hqsNormal⟩ hqsLt
+--==================================================================================================
+theorem NormalOmegaTerm_acc_of_eq {a b : NormalOmegaTerm} (ha : Acc NormalOmegaTerm_lt a)
+        (hab : a =no b) : Acc NormalOmegaTerm_lt b := by sorry
+theorem NormalPrincipalList_acc_of_eq {as bs : NormalPrincipalList}
+        (ha : Acc NormalPrincipalList_lt as)
+        (hab : NormalPrincipalList_eq as bs) :
+        Acc NormalPrincipalList_lt bs := by sorry
+theorem NormalPrincipal_acc_of_ofPrincipal_acc (p : NormalPrincipal)
+        (hp : Acc NormalCountableOrd_lt ⟨countableOrd.ofPrincipal p.1, by
+          -- prove singleton is normal
+          sorry⟩) : Acc NormalPrincipal_lt p := by sorry
+theorem countableOrd_ofPrincipal_normal {p : principal} (hp : principal_normal p) :
+        countableOrd_normal (countableOrd.ofPrincipal p) := by
+  exact countableOrd_normal.sum (principalList_normal.singleton hp)
+theorem NormalOmegaTerm_zero_acc : Acc NormalOmegaTerm_lt
+        ⟨omegaTerm.zero, omegaTerm_normal.zero⟩ := by sorry
+
+
+theorem countableOrd_lt_wf : WellFounded NormalCountableOrd_lt := by sorry
