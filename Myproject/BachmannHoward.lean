@@ -427,7 +427,6 @@ theorem countableOrd_tri (a b : countableOrd) : a<cb ∨ a=cb ∨ b<ca := by
     all_goals
       simp only [countableOrd_cmplx]
       omega
-
 theorem principal_tri (a b : principal) : a<pb ∨ a=pb ∨ b<pa := by
   cases a with
   | psi o1 =>
@@ -468,8 +467,6 @@ theorem principal_tri (a b : principal) : a<pb ∨ a=pb ∨ b<pa := by
         principalList_cmplx
       ] at *
       omega
-
-
 theorem principalList_tri (as bs : List principal) : principalList_lt as bs ∨
         principalList_eq as bs ∨ principalList_lt bs as := by
   cases as with
@@ -559,7 +556,6 @@ theorem coefficientList_tri
   | nil =>
       left
       exact coefficientList_lt.nil
-
   | cons c cs =>
       cases countableOrd_tri bound c with
       | inl hbc =>
@@ -1908,514 +1904,394 @@ consider now the complexity as a triple. That is, if we name the complexity as "
 ((rank of α), (rank of β), (rank of γ)) and compare them lexicographically.
 -/
 --========================================================================================
-
+-- Definition ----------------------------------------------------------------------------
 mutual
+inductive CountableOrdRank where
+  | sum : List PrincipalRank → CountableOrdRank
+inductive PrincipalRank where
+  | psi : OmegaTermRank → List CountableOrdRank → PrincipalRank
+  -- Counts input omegaTerm and the coefficients CountableOrds
+inductive OmegaTermRank where
+  | zero : OmegaTermRank
+  | omegaNF : OmegaTermRank → CountableOrdRank → OmegaTermRank → OmegaTermRank
+end
 
-theorem NormalCountableOrd_all_acc (a : NormalCountableOrd) :
-        Acc NormalCountableOrd_lt a := by
-  rcases a with ⟨a_countableOrd, ha_isNormal⟩
-  cases a_countableOrd with
-  | sum ps =>
-    cases ha_isNormal with
-    | sum hps =>
-      cases ps with
-      | nil => exact NormalCountableOrd_acc NormalPrincipalList_nil_acc
-      | cons p pList =>
-        have hpNormal : principal_normal p :=
-          NormalPrincipalList_normalHead hps
-        let pN : NormalPrincipal := ⟨p, hpNormal⟩
-        have hpAcc : Acc NormalPrincipal_lt pN :=
-          NormalPrincipal_all_acc pN
-        have hpsAcc : Acc NormalPrincipalList_lt ⟨p :: pList, hps⟩ :=
-          NormalPrincipalList_acc hps hpAcc
-        exact NormalCountableOrd_acc hpsAcc
-  termination_by 10 * countableOrd_cmplx a.1 + 9
+structure OmegaRankData where
+  term : OmegaTermRank
+  coeffs : List CountableOrdRank
+-- Evaluation ---------------------------------------------------------------------------
+mutual
+def countableOrd_rank : countableOrd → CountableOrdRank
+  | countableOrd.sum ps => CountableOrdRank.sum (principalList_rank ps)
+def principal_rank : principal → PrincipalRank
+  | principal.psi a => let ro := omegaTerm_rank_data a
+                       PrincipalRank.psi ro.term ro.coeffs
+def principalList_rank : List principal → List PrincipalRank
+  | [] => []
+  | p :: ps => principal_rank p :: principalList_rank ps
+def omegaTerm_rank_data : omegaTerm → OmegaRankData
+  | omegaTerm.zero => {term := OmegaTermRank.zero
+                       coeffs := [CountableOrdRank.sum []]}
+  | omegaTerm.omegaNF alpha beta gamma =>
+    let ra := omegaTerm_rank_data alpha
+    let rb := countableOrd_rank beta
+    let rc := omegaTerm_rank_data gamma
+    {term := OmegaTermRank.omegaNF ra.term rb rc.term,
+     coeffs := ra.coeffs ++ rc.coeffs ++ [rb]}
+end
+def omegaTerm_rank (o : omegaTerm) : OmegaTermRank := (omegaTerm_rank_data o).term
+-- Evaluation Identities ---------------------------------------------------------------
+-- Some data conversions
+@[simp]
+theorem countableOrd_rank_sum (ps : List principal) :
+        countableOrd_rank (countableOrd.sum ps) =
+        CountableOrdRank.sum (principalList_rank ps) := by
+  rfl
+@[simp]
+theorem principalList_rank_nil : principalList_rank [] = [] := by
+  rfl
+@[simp]
+theorem principalList_rank_cons (p : principal) (ps : List principal) :
+        principalList_rank (p :: ps) = principal_rank p :: principalList_rank ps := by
+  rfl
+@[simp]
+theorem omegaTerm_rank_zero : omegaTerm_rank omegaTerm.zero = OmegaTermRank.zero := by rfl
+@[simp]
+theorem omegaTerm_rank_omegaNF (alpha gamma : omegaTerm) (beta : countableOrd) :
+        omegaTerm_rank (.omegaNF alpha beta gamma) =
+        .omegaNF (omegaTerm_rank alpha) (countableOrd_rank beta) (omegaTerm_rank gamma) := by rfl
+@[simp]
+theorem omegaTerm_rank_data_coefficients (o : omegaTerm) :
+        (omegaTerm.coefficients o).map countableOrd_rank = (omegaTerm_rank_data o).coeffs := by
+  cases o with
+  | zero =>
+      simp [omegaTerm.coefficients, omegaTerm_rank_data, countableOrd.zero,
+            countableOrd_rank, principalList_rank]
+  | omegaNF alpha beta gamma =>
+      have hAlpha := omegaTerm_rank_data_coefficients alpha
+      have hGamma := omegaTerm_rank_data_coefficients gamma
+      simp [omegaTerm.coefficients, omegaTerm_rank_data, List.map_append,
+            hAlpha, hGamma]
+-- Equality preserves rank
+mutual
+theorem countableOrd_eq_rank_eq {a b : countableOrd} (h : a=cb) : countableOrd_rank a =
+        countableOrd_rank b := by
+  cases h with
+  | sum hps =>
+      simp only [countableOrd_rank]
+      apply congrArg CountableOrdRank.sum
+      exact principalList_eq_rank_eq hps
+  termination_by
+    countableOrd_cmplx a + countableOrd_cmplx b
   decreasing_by
-      all_goals
+    all_goals
       subst_vars
-      simp_all [countableOrd_cmplx, principalList_cmplx, principal_cmplx] <;> omega
-
-
-theorem NormalPrincipal_all_acc (p : NormalPrincipal) : Acc NormalPrincipal_lt p := by
-  rcases p with ⟨p,hp⟩
+      simp only [countableOrd_cmplx]
+      omega
+theorem principal_eq_rank_eq {p q : principal} (h : p=pq) :
+        principal_rank p = principal_rank q := by
   cases p with
-  | psi o =>
-    cases hp with
-    | psi ho hcoeff =>
-      let oN : NormalOmegaTerm := ⟨o, ho⟩
-      have hoAcc : Acc NormalOmegaTerm_lt oN :=
-        NormalOmegaTerm_all_acc oN
-      let motive : (a : NormalOmegaTerm) → Acc NormalOmegaTerm_lt a → Prop :=
-        fun a _ =>
-          ∀ haCoeff : coefficientList_lt
-              (omegaTerm.coefficients a.1)
-              (countableOrd.ofPrincipal (.psi a.1)),
-            Acc NormalPrincipal_lt
-              ⟨.psi a.1, principal_normal.psi a.2 haCoeff⟩
-      exact Acc.rec (motive := motive)
-        (fun a hpred ih haCoeff =>
-          NormalPrincipal_acc_step a hpred ih haCoeff)
-        hoAcc hcoeff
-  termination_by 10 * principal_cmplx p.1 + 9
+  | psi a =>
+    cases q with
+    | psi b =>
+      cases h with
+      | psi habOmega =>
+        have hterm : (omegaTerm_rank_data a).term = (omegaTerm_rank_data b).term := by
+             exact omegaTerm_eq_rank_eq habOmega
+        have hcoeffMap : (omegaTerm.coefficients a).map countableOrd_rank =
+                         (omegaTerm.coefficients b).map countableOrd_rank := by
+             exact omegaTerm_eq_coefficient_rank_eq habOmega
+        have hcoeff : (omegaTerm_rank_data a).coeffs = (omegaTerm_rank_data b).coeffs := by
+             rw [← omegaTerm_rank_data_coefficients, ← omegaTerm_rank_data_coefficients b]
+             exact hcoeffMap
+        simp only [principal_rank]; rw [hterm, hcoeff]
+  termination_by
+    principal_cmplx p + principal_cmplx q
   decreasing_by
     all_goals
       subst_vars
       simp only [principal_cmplx]
       omega
-
-theorem NormalOmegaTerm_all_acc (o : NormalOmegaTerm) : Acc NormalOmegaTerm_lt o := by
-  rcases o with ⟨o, ho⟩
-  cases o with
-  | zero => exact NormalOmegaTerm_zero_acc
-  | omegaNF alpha beta gamma =>
-      have hAlphaNormal : omegaTerm_normal alpha :=
-        omegaTerm_normal_alpha ho
-      have hBetaNormal : countableOrd_normal beta :=
-        omegaTerm_normal_beta ho
-      have hGammaNormal : omegaTerm_normal gamma :=
-        omegaTerm_normal_gamma ho
-      let alphaN : NormalOmegaTerm := ⟨alpha, hAlphaNormal⟩
-      let betaN : NormalCountableOrd := ⟨beta, hBetaNormal⟩
-      let gammaN : NormalOmegaTerm := ⟨gamma, hGammaNormal⟩
-      have hAlphaAcc : Acc NormalOmegaTerm_lt alphaN := NormalOmegaTerm_all_acc alphaN
-      let motive : (a : NormalOmegaTerm) → Acc NormalOmegaTerm_lt a → Prop :=
-        fun a _ =>
-          ∀ (b : NormalCountableOrd) (g : NormalOmegaTerm)
-            (h : omegaTerm_normal (.omegaNF a.1 b.1 g.1)),
-            Acc NormalOmegaTerm_lt ⟨.omegaNF a.1 b.1 g.1, h⟩
-      exact Acc.rec (motive := motive)
-        (fun a hpred ih b g h =>
-          NormalOmegaTerm_omegaNF_step a hpred ih b g h)
-        hAlphaAcc betaN gammaN ho
-  termination_by 10 * omegaTerm_cmplx o.1 + 9
+theorem principalList_eq_rank_eq {pList qList : List principal} (h : principalList_eq pList qList) :
+        principalList_rank pList = principalList_rank qList := by
+  cases h with
+  | nil => rfl
+  | cons hHead hTail =>
+    simp only [principalList_rank]
+    rw [principal_eq_rank_eq hHead, principalList_eq_rank_eq hTail]
+  termination_by
+    principalList_cmplx pList + principalList_cmplx qList
+  decreasing_by
+    all_goals
+      subst_vars
+      simp only [principalList_cmplx]
+      omega
+theorem omegaTerm_eq_rank_eq {a b : omegaTerm} (h : a=ob) : omegaTerm_rank a = omegaTerm_rank b
+        := by
+  cases h with
+  | zero => rfl
+  | omegaNF alphaEq betaEq gammaEq =>
+    change
+      OmegaTermRank.omegaNF (omegaTerm_rank _) (countableOrd_rank _) (omegaTerm_rank _) =
+      OmegaTermRank.omegaNF (omegaTerm_rank _) (countableOrd_rank _) (omegaTerm_rank _)
+    rw [omegaTerm_eq_rank_eq alphaEq, countableOrd_eq_rank_eq betaEq, omegaTerm_eq_rank_eq gammaEq]
+  termination_by
+    omegaTerm_cmplx a + omegaTerm_cmplx b
   decreasing_by
     all_goals
       subst_vars
       simp only [omegaTerm_cmplx]
       omega
 
-/-
-If the normal omega-term o is accessible, and its coefficients are all smaller than the
-principal term ψ(o), then the normal principal term ψ(o) is also accessible.
--/
-theorem NormalPrincipal_acc_step
-    (o : NormalOmegaTerm)
-    (hpred : ∀ a, NormalOmegaTerm_lt a o → Acc NormalOmegaTerm_lt a)
-    (ih :
-      ∀ a, (ha : NormalOmegaTerm_lt a o) →
-        (haCoeff : coefficientList_lt
-          (omegaTerm.coefficients a.1)
-          (countableOrd.ofPrincipal (.psi a.1))) →
-        Acc NormalPrincipal_lt
-          ⟨.psi a.1,
-            principal_normal.psi a.2 haCoeff⟩)
-    (hcoeff :
-      coefficientList_lt
-        (omegaTerm.coefficients o.1)
-        (countableOrd.ofPrincipal (.psi o.1))) :
-    Acc NormalPrincipal_lt
-      ⟨.psi o.1,
-        principal_normal.psi o.2 hcoeff⟩ := by
-      apply Acc.intro
-
-      rintro ⟨q, hqNormal⟩ hq
-
-      cases q with
-      | psi a =>
-          cases hqNormal with
-          | psi haNormal haCoeff =>
-
-              cases hq with
-
-              --------------------------------------------------
-              -- ψ(a) < ψ(o), with a < o
-              --------------------------------------------------
-              | psi_forward harg _ =>
-                  let aN : NormalOmegaTerm :=
-                    ⟨a, haNormal⟩
-
-                  exact ih aN harg haCoeff
-
-
-              --------------------------------------------------
-              -- reverse strict:
-              -- ψ(a) < c, c ∈ coefficients(o)
-              --------------------------------------------------
-              | @psi_reverse_lt _ _ c hrev hc hltc =>
-                  have hcNormal :
-                      countableOrd_normal c :=
-                    coefficient_normal_of_mem o.2 hc
-
-                  let cN : NormalCountableOrd :=
-                    ⟨c, hcNormal⟩
-
-                  have hcAcc :
-                      Acc NormalCountableOrd_lt cN :=
-                    NormalCountableOrd_all_acc cN
-
-                  let qN : NormalPrincipal :=
-                    ⟨.psi a,
-                      principal_normal.psi
-                        haNormal
-                        haCoeff⟩
-
-                  let qC : NormalCountableOrd :=
-                    ⟨countableOrd.ofPrincipal (.psi a),
-                      countableOrd_ofPrincipal_normal qN.2⟩
-
-                  have hqCAcc :
-                      Acc NormalCountableOrd_lt qC :=
-                    hcAcc.inv hltc
-
-                  exact
-                    NormalPrincipal_acc_of_ofPrincipal_acc
-                      qN
-                      hqCAcc
-
-
-              --------------------------------------------------
-              -- reverse equality:
-              -- ψ(a) = c, c ∈ coefficients(o)
-              --------------------------------------------------
-              | @psi_reverse_eq _ _ c hrev hc heqc =>
-                  have hcNormal :
-                      countableOrd_normal c :=
-                    coefficient_normal_of_mem o.2 hc
-
-                  let cN : NormalCountableOrd :=
-                    ⟨c, hcNormal⟩
-
-                  have hcAcc :
-                      Acc NormalCountableOrd_lt cN :=
-                    NormalCountableOrd_all_acc cN
-
-                  let qN : NormalPrincipal :=
-                    ⟨.psi a,
-                      principal_normal.psi
-                        haNormal
-                        haCoeff⟩
-
-                  let qC : NormalCountableOrd :=
-                    ⟨countableOrd.ofPrincipal (.psi a),
-                      countableOrd_ofPrincipal_normal qN.2⟩
-
-                  have hqCAcc :
-                      Acc NormalCountableOrd_lt qC := by
-                    apply NormalCountableOrd_acc_of_eq hcAcc
-                    exact countableOrd_eq_sym heqc
-
-                  exact
-                    NormalPrincipal_acc_of_ofPrincipal_acc
-                      qN
-                      hqCAcc
-
+theorem omegaTerm_eq_coefficient_rank_eq {a b : omegaTerm} (h : a =o b) :
+        (omegaTerm.coefficients a).map countableOrd_rank
+        = (omegaTerm.coefficients b).map countableOrd_rank := by
+  cases h with
+  | zero => rfl
+  | omegaNF alphaEq betaEq gammaEq =>
+    simp only [omegaTerm.coefficients, List.map_append, List.map_cons, List.map_nil]
+    rw [omegaTerm_eq_coefficient_rank_eq alphaEq,
+        omegaTerm_eq_coefficient_rank_eq gammaEq,
+        countableOrd_eq_rank_eq betaEq]
   termination_by
-    10 * principal_cmplx (.psi o.1) + 5
-
-  decreasing_by
-    all_goals
-      subst_vars
-      try have hc_cmplx := coefficient_cmplx_lt_of_mem hc
-      simp only [principal_cmplx]
-      omega
-
-
-/-
-Helper for omegaNF.
-
-This is the lexicographic accessibility argument.
-
-We successively induct on accessibility of:
-
-  α
-  β
-  γ
-
-so that:
-
-  smaller exponent    -> use α induction hypothesis
-  equal exponent,
-  smaller coefficient -> use β induction hypothesis
-  equal α and β,
-  smaller remainder   -> use γ induction hypothesis
-
-The custom equality cases are transported with
-NormalOmegaTerm_acc_of_eq.
--/
-theorem NormalOmegaTerm_omegaNF_step
-    (alpha : NormalOmegaTerm)
-    (hAlphaPred : ∀ a, NormalOmegaTerm_lt a alpha → Acc NormalOmegaTerm_lt a)
-    (ihAlpha :
-      ∀ a, (ha : NormalOmegaTerm_lt a alpha) →
-        ∀ (b : NormalCountableOrd) (c : NormalOmegaTerm)
-          (h : omegaTerm_normal (.omegaNF a.1 b.1 c.1)),
-          Acc NormalOmegaTerm_lt ⟨.omegaNF a.1 b.1 c.1, h⟩)
-    (beta : NormalCountableOrd)
-    (gamma : NormalOmegaTerm)
-    (hnormal :
-      omegaTerm_normal
-        (.omegaNF alpha.1 beta.1 gamma.1)) :
-    Acc NormalOmegaTerm_lt
-      ⟨.omegaNF alpha.1 beta.1 gamma.1,
-        hnormal⟩ := by
-  have hBetaAcc : Acc NormalCountableOrd_lt beta :=
-    NormalCountableOrd_all_acc beta
-
-      ----------------------------------------------------------
-      -- Second coordinate: coefficient
-      ----------------------------------------------------------
-      revert gamma
-
-      induction hBetaAcc with
-      | intro beta hBetaPred ihBeta =>
-          intro gamma hnormal
-
-          ------------------------------------------------------
-          -- Third coordinate: remainder
-          ------------------------------------------------------
-          have hGammaAcc : Acc NormalOmegaTerm_lt gamma :=
-            NormalOmegaTerm_all_acc gamma
-          revert hnormal
-
-          induction hGammaAcc with
-          | intro gamma hGammaPred ihGamma =>
-              intro hnormal
-
-              have hBetaPos :
-                  countableOrd.zero <c beta.1 := by
-                cases hnormal with
-                | omegaNF _ _ _ hpos _ =>
-                    exact hpos
-
-              apply Acc.intro
-
-              rintro ⟨x, hxNormal⟩ hxlt
-
-              cases x with
-
-              --------------------------------------------------
-              -- zero < every omegaNF
-              --------------------------------------------------
-              | zero =>
-                  exact NormalOmegaTerm_zero_acc
-
-
-              | omegaNF a b c =>
-
-                  have haNormal :
-                      omegaTerm_normal a :=
-                    omegaTerm_normal_alpha hxNormal
-
-                  have hbNormal :
-                      countableOrd_normal b :=
-                    omegaTerm_normal_beta hxNormal
-
-                  have hcNormal :
-                      omegaTerm_normal c :=
-                    omegaTerm_normal_gamma hxNormal
-
-                  have hbPos :
-                      countableOrd.zero <c b := by
-                    cases hxNormal with
-                    | omegaNF _ _ _ hpos _ =>
-                        exact hpos
-
-                  have hcBound :
-                      c <o
-                        .omegaNF
-                          a
-                          countableOrd.one
-                          omegaTerm.zero := by
-                    cases hxNormal with
-                    | omegaNF _ _ _ _ hbound =>
-                        exact hbound
-
-                  let aN : NormalOmegaTerm :=
-                    ⟨a, haNormal⟩
-
-                  let bN : NormalCountableOrd :=
-                    ⟨b, hbNormal⟩
-
-                  let cN : NormalOmegaTerm :=
-                    ⟨c, hcNormal⟩
-
-                  cases hxlt with
-
-                  ------------------------------------------------
-                  -- a < alpha
-                  ------------------------------------------------
-                  | exponent hA =>
-                      exact
-                        ihAlpha
-                          aN
-                          hA
-                          bN
-                          cN
-                          hxNormal
-
-
-                  ------------------------------------------------
-                  -- a = alpha and b < beta
-                  ------------------------------------------------
-                  | coefficient hAEq hB =>
-
-                      have hOmegaEq :
-                          (.omegaNF
-                              a
-                              countableOrd.one
-                              omegaTerm.zero)
-                            =o
-                          (.omegaNF
-                              alpha.1
-                              countableOrd.one
-                              omegaTerm.zero) := by
-                        exact omegaTerm_eq.omegaNF
-                          hAEq
-                          (countableOrd_eq_refl
-                            countableOrd.one)
-                          omegaTerm_eq.zero
-
-                      have hcBound' :
-                          c <o
-                            .omegaNF
-                              alpha.1
-                              countableOrd.one
-                              omegaTerm.zero :=
-                        omegaTerm_lt_eq_trans
-                          hcBound
-                          hOmegaEq
-
-                      have hCanonNormal :
-                          omegaTerm_normal
-                            (.omegaNF
-                              alpha.1
-                              b
-                              c) := by
-                        exact omegaTerm_normal.omegaNF
-                          alpha.2
-                          hbNormal
-                          hcNormal
-                          hbPos
-                          hcBound'
-
-                      have hCanonAcc :
-                          Acc NormalOmegaTerm_lt
-                            ⟨.omegaNF alpha.1 b c,
-                              hCanonNormal⟩ :=
-                        ihBeta
-                          bN
-                          hB
-                          cN
-                          hCanonNormal
-
-                      have hActualCanon :
-                          (.omegaNF a b c)
-                            =o
-                          (.omegaNF alpha.1 b c) := by
-                        exact omegaTerm_eq.omegaNF
-                          hAEq
-                          (countableOrd_eq_refl b)
-                          (omegaTerm_eq_refl c)
-
-                      apply
-                        NormalOmegaTerm_acc_of_eq
-                          hCanonAcc
-
-                      exact
-                        omegaTerm_eq_sym
-                          hActualCanon
-
-
-                  ------------------------------------------------
-                  -- a = alpha, b = beta, c < gamma
-                  ------------------------------------------------
-                  | remainder hAEq hBEq hC =>
-
-                      have hOmegaEq :
-                          (.omegaNF
-                              a
-                              countableOrd.one
-                              omegaTerm.zero)
-                            =o
-                          (.omegaNF
-                              alpha.1
-                              countableOrd.one
-                              omegaTerm.zero) := by
-                        exact omegaTerm_eq.omegaNF
-                          hAEq
-                          (countableOrd_eq_refl
-                            countableOrd.one)
-                          omegaTerm_eq.zero
-
-                      have hcBound' :
-                          c <o
-                            .omegaNF
-                              alpha.1
-                              countableOrd.one
-                              omegaTerm.zero :=
-                        omegaTerm_lt_eq_trans
-                          hcBound
-                          hOmegaEq
-
-                      have hCanonNormal :
-                          omegaTerm_normal
-                            (.omegaNF
-                              alpha.1
-                              beta.1
-                              c) := by
-                        exact omegaTerm_normal.omegaNF
-                          alpha.2
-                          beta.2
-                          hcNormal
-                          hBetaPos
-                          hcBound'
-
-                      have hCanonAcc :
-                          Acc NormalOmegaTerm_lt
-                            ⟨.omegaNF
-                                alpha.1
-                                beta.1
-                                c,
-                              hCanonNormal⟩ :=
-                        ihGamma
-                          cN
-                          hC
-                          hCanonNormal
-
-                      have hActualCanon :
-                          (.omegaNF a b c)
-                            =o
-                          (.omegaNF
-                              alpha.1
-                              beta.1
-                              c) := by
-                        exact omegaTerm_eq.omegaNF
-                          hAEq
-                          hBEq
-                          (omegaTerm_eq_refl c)
-
-                      apply
-                        NormalOmegaTerm_acc_of_eq
-                          hCanonAcc
-
-                      exact
-                        omegaTerm_eq_sym
-                          hActualCanon
-
-  termination_by
-    10 *
-        omegaTerm_cmplx
-          (.omegaNF
-            alpha.1
-            beta.1
-            gamma.1)
-      + 5
-
+    omegaTerm_cmplx a + omegaTerm_cmplx b
   decreasing_by
     all_goals
       subst_vars
       simp only [omegaTerm_cmplx]
       omega
 end
+-- Comparison ---------------------------------------------------------------------------
+mutual
+inductive CountableOrdRank_lt : CountableOrdRank → CountableOrdRank → Prop where
+  | sum {xs ys : List PrincipalRank} (h : PrincipalListRank_lt xs ys) :
+    CountableOrdRank_lt (.sum xs) (.sum ys)
+inductive PrincipalRank_lt : PrincipalRank → PrincipalRank → Prop where
+  | psi_forward {a b : OmegaTermRank} {as bs : List CountableOrdRank}
+                (harg : OmegaTermRank_lt a b)
+                (hcoeff : OmegaTermCoefficientRank_lt as (.sum [.psi b bs])) :
+                PrincipalRank_lt (.psi a as) (.psi b bs)
+  | psi_reverse_lt {a b : OmegaTermRank} {as bs : List CountableOrdRank} {c : CountableOrdRank}
+                   (harg : OmegaTermRank_lt b a) (hc : c ∈ bs)
+                   (hbound : CountableOrdRank_lt (.sum [.psi a as]) c) :
+                   PrincipalRank_lt (.psi a as) (.psi b bs)
+  | psi_reverse_eq {a b : OmegaTermRank} {as bs : List CountableOrdRank} {c : CountableOrdRank}
+                   (harg : OmegaTermRank_lt b a) (hc : c ∈ bs)
+                   (hbound : (.sum [.psi a as] : CountableOrdRank) = c) :
+                   PrincipalRank_lt (.psi a as) (.psi b bs)
+inductive PrincipalListRank_lt : List PrincipalRank → List PrincipalRank → Prop where
+  | nil {p : PrincipalRank} {ps : List PrincipalRank} : PrincipalListRank_lt [] (p :: ps)
+  | head {p q : PrincipalRank} {ps qs : List PrincipalRank} (h : PrincipalRank_lt p q) :
+    PrincipalListRank_lt (p :: ps) (q :: qs)
+  | tail {p q : PrincipalRank} {ps qs : List PrincipalRank} (heq : p = q)
+         (htail : PrincipalListRank_lt ps qs) :
+         PrincipalListRank_lt (p :: ps) (q :: qs)
+inductive OmegaTermRank_lt : OmegaTermRank → OmegaTermRank → Prop where
+  | zero {alpha gamma : OmegaTermRank} {beta : CountableOrdRank} :
+    OmegaTermRank_lt .zero (.omegaNF alpha beta gamma)
+  | exponent {alpha1 alpha2 gamma1 gamma2 : OmegaTermRank} {beta1 beta2 : CountableOrdRank}
+             (h : OmegaTermRank_lt alpha1 alpha2) :
+    OmegaTermRank_lt (.omegaNF alpha1 beta1 gamma1) (.omegaNF alpha2 beta2 gamma2)
+  | coefficient {alpha1 alpha2 gamma1 gamma2 : OmegaTermRank} {beta1 beta2 : CountableOrdRank}
+                (hexeq : alpha1 = alpha2) (h : CountableOrdRank_lt beta1 beta2) :
+    OmegaTermRank_lt (.omegaNF alpha1 beta1 gamma1) (.omegaNF alpha2 beta2 gamma2)
+  | remainder {alpha1 alpha2 gamma1 gamma2 : OmegaTermRank} {beta1 beta2 : CountableOrdRank}
+              (hexeq : alpha1 = alpha2) (hcoeq : beta1 = beta2)
+              (h : OmegaTermRank_lt gamma1 gamma2) :
+    OmegaTermRank_lt (.omegaNF alpha1 beta1 gamma1) (.omegaNF alpha2 beta2 gamma2)
+-- Comparison of list of coefficients with a single value
+inductive OmegaTermCoefficientRank_lt : List CountableOrdRank → CountableOrdRank → Prop where
+  | nil {bound : CountableOrdRank} : OmegaTermCoefficientRank_lt [] bound
+  | cons {c bound : CountableOrdRank} {cs : List CountableOrdRank}
+         (hhead : CountableOrdRank_lt c bound) (htail : OmegaTermCoefficientRank_lt cs bound) :
+    OmegaTermCoefficientRank_lt (c :: cs) bound
+end
 
-theorem countableOrd_lt_wf : WellFounded NormalCountableOrd_lt := by sorry
+
+
+/-
+The crucial relation is that the original raw data comparison is preserved onto their ranks
+-/
+mutual
+theorem countableOrd_lt_rank_lt {a b : countableOrd} (h : a<cb) :
+        CountableOrdRank_lt (countableOrd_rank a) (countableOrd_rank b) := by
+  cases h with
+  | sum hList => exact CountableOrdRank_lt.sum (principalList_lt_rank_lt hList)
+  termination_by
+    countableOrd_cmplx a + countableOrd_cmplx b
+  decreasing_by
+    all_goals
+      subst_vars
+      simp only [countableOrd_cmplx]
+      omega
+theorem principal_lt_rank_lt {p q : principal} (h : p<pq) :
+        PrincipalRank_lt (principal_rank p) (principal_rank q) := by
+  cases h with
+  | @psi_forward a b hArg hCoeff =>
+      apply PrincipalRank_lt.psi_forward
+      · exact omegaTerm_lt_rank_lt hArg
+      · have hCoeffRank :=
+          coefficientList_lt_rank_lt hCoeff
+        simpa [principal_rank, countableOrd.ofPrincipal] using hCoeffRank
+  | @psi_reverse_lt a b c hArg hc hBound =>
+      apply PrincipalRank_lt.psi_reverse_lt
+      · exact omegaTerm_lt_rank_lt hArg
+      · have hcMap :
+            countableOrd_rank c ∈
+              (omegaTerm.coefficients b).map countableOrd_rank := by
+          exact List.mem_map.mpr ⟨c, hc, rfl⟩
+        simpa using hcMap
+      · have hBoundRank :=
+          countableOrd_lt_rank_lt hBound
+        simpa [principal_rank, countableOrd.ofPrincipal] using hBoundRank
+  | @psi_reverse_eq a b c hArg hc hBound =>
+      apply PrincipalRank_lt.psi_reverse_eq
+      · exact omegaTerm_lt_rank_lt hArg
+      · have hcMap :
+            countableOrd_rank c ∈
+              (omegaTerm.coefficients b).map countableOrd_rank := by
+          exact List.mem_map.mpr ⟨c, hc, rfl⟩
+        simpa using hcMap
+      · have hBoundRank := countableOrd_eq_rank_eq hBound
+        simpa [
+          principal_rank,
+          countableOrd.ofPrincipal
+        ] using hBoundRank
+  termination_by principal_cmplx p + principal_cmplx q
+  decreasing_by
+    all_goals
+      subst_vars
+      try have hCoeffCmplx := coefficients_cmplx_lt a
+      try have hcCmplx := coefficient_cmplx_lt_of_mem hc
+      simp only [principal_cmplx, countableOrd_cmplx_ofPrincipal_psi] at *
+      omega
+theorem principalList_lt_rank_lt {ps qs : List principal} (h : principalList_lt ps qs) :
+        PrincipalListRank_lt (principalList_rank ps) (principalList_rank qs) := by
+  cases h with
+  | nil => exact PrincipalListRank_lt.nil
+  | head hHead => exact PrincipalListRank_lt.head (principal_lt_rank_lt hHead)
+  | tail hHeadEq hTail =>
+      exact PrincipalListRank_lt.tail
+        (principal_eq_rank_eq hHeadEq)
+        (principalList_lt_rank_lt hTail)
+  termination_by principalList_cmplx ps + principalList_cmplx qs
+  decreasing_by
+    all_goals
+      subst_vars
+      simp only [principalList_cmplx]
+      omega
+theorem omegaTerm_lt_rank_lt {a b : omegaTerm} (h : a <o b) :
+    OmegaTermRank_lt (omegaTerm_rank a) (omegaTerm_rank b) := by
+  cases h with
+  | zero => exact OmegaTermRank_lt.zero
+  | exponent hAlpha =>
+      exact OmegaTermRank_lt.exponent
+        (omegaTerm_lt_rank_lt hAlpha)
+  | coefficient hAlphaEq hBeta =>
+      exact OmegaTermRank_lt.coefficient
+        (omegaTerm_eq_rank_eq hAlphaEq)
+        (countableOrd_lt_rank_lt hBeta)
+  | remainder hAlphaEq hBetaEq hGamma =>
+      exact OmegaTermRank_lt.remainder
+        (omegaTerm_eq_rank_eq hAlphaEq)
+        (countableOrd_eq_rank_eq hBetaEq)
+        (omegaTerm_lt_rank_lt hGamma)
+  termination_by omegaTerm_cmplx a + omegaTerm_cmplx b
+  decreasing_by
+    all_goals
+      subst_vars
+      simp only [omegaTerm_cmplx]
+      omega
+theorem coefficientList_lt_rank_lt {cs : List countableOrd} {bound : countableOrd}
+        (h : coefficientList_lt cs bound) :
+        OmegaTermCoefficientRank_lt (cs.map countableOrd_rank)
+        (countableOrd_rank bound) := by
+  cases h with
+  | nil => exact OmegaTermCoefficientRank_lt.nil
+  | cons hHead hTail =>
+      simp only [List.map_cons]
+      exact OmegaTermCoefficientRank_lt.cons
+        (countableOrd_lt_rank_lt hHead)
+        (coefficientList_lt_rank_lt hTail)
+  termination_by coefficientList_cmplx cs + countableOrd_cmplx bound
+  decreasing_by
+    all_goals
+      subst_vars
+      simp only [coefficientList_cmplx]
+      omega
+end
+--===============================================================================
+-- Rank of normal objects
+def NormalCountableOrd_rank (a : NormalCountableOrd) : CountableOrdRank :=
+  countableOrd_rank a.1
+def NormalPrincipal_rank (p : NormalPrincipal) : PrincipalRank :=
+  principal_rank p.1
+def NormalPrincipalList_rank
+    (ps : NormalPrincipalList) : List PrincipalRank :=
+  principalList_rank ps.1
+def NormalOmegaTerm_rank (o : NormalOmegaTerm) : OmegaTermRank :=
+  omegaTerm_rank o.1
+--===============================================================================
+-- Normal equality preserves rank
+theorem NormalCountableOrd_eq_rank_eq {a b : NormalCountableOrd} (h : a =nc b) :
+        NormalCountableOrd_rank a = NormalCountableOrd_rank b := by
+  exact countableOrd_eq_rank_eq h
+theorem NormalPrincipal_eq_rank_eq {p q : NormalPrincipal} (h : p=npq) :
+        NormalPrincipal_rank p = NormalPrincipal_rank q := by
+  exact principal_eq_rank_eq h
+theorem NormalPrincipalList_eq_rank_eq {ps qs : NormalPrincipalList}
+        (h : NormalPrincipalList_eq ps qs) : NormalPrincipalList_rank ps =
+        NormalPrincipalList_rank qs := by
+  exact principalList_eq_rank_eq h
+theorem NormalOmegaTerm_eq_rank_eq {a b : NormalOmegaTerm} (h : a=nob) :
+        NormalOmegaTerm_rank a = NormalOmegaTerm_rank b := by
+  exact omegaTerm_eq_rank_eq h
+
+--===============================================================================
+-- Normal < is preserved by rank
+theorem NormalCountableOrd_lt_rank_lt {a b : NormalCountableOrd} (h : a <nc b) :
+        CountableOrdRank_lt (NormalCountableOrd_rank a) (NormalCountableOrd_rank b) := by
+  exact countableOrd_lt_rank_lt h
+theorem NormalPrincipal_lt_rank_lt {p q : NormalPrincipal} (h : p<npq) :
+        PrincipalRank_lt (NormalPrincipal_rank p) (NormalPrincipal_rank q) := by
+  exact principal_lt_rank_lt h
+theorem NormalPrincipalList_lt_rank_lt {ps qs : NormalPrincipalList}
+        (h : NormalPrincipalList_lt ps qs) :
+        PrincipalListRank_lt (NormalPrincipalList_rank ps)
+          (NormalPrincipalList_rank qs) := by
+  exact principalList_lt_rank_lt h
+theorem NormalOmegaTerm_lt_rank_lt {a b : NormalOmegaTerm} (h : a<nob) :
+        OmegaTermRank_lt (NormalOmegaTerm_rank a) (NormalOmegaTerm_rank b) := by
+  exact omegaTerm_lt_rank_lt h
+--===============================================================================
+-- Well-Foundedness of rank
+theorem PrincipalListRank_nil_acc : Acc PrincipalListRank_lt [] := by
+  apply Acc.intro -- Goal : ∀pr : PrincipalListRank, PrincipalListRank_lt pr [] →
+  intro pr hlt
+  cases hlt
+theorem OmegaTermRank_zero_acc : Acc OmegaTermRank_lt .zero := by
+  apply Acc.intro
+  intro or hlt
+  cases hlt
+def PrincipalListRank_bounded_by (p : PrincipalRank) (ps : List PrincipalRank) : Prop :=
+  ∀ q, q ∈ ps → PrincipalRank_lt q p ∨ q = p
+
+
+mutual
+theorem CountableOrdRank_all_acc (a : CountableOrdRank) : Acc CountableOrdRank_lt a := by sorry
+theorem PrincipalRank_all_acc (p : PrincipalRank) : Acc PrincipalRank_lt p := by sorry
+theorem OmegaTermRank_all_acc (o : OmegaTermRank) : Acc OmegaTermRank_lt o := by sorry
+end
+theorem CountableOrdRank_lt_wf : WellFounded CountableOrdRank_lt := by
+  constructor
+  intro a
+  exact CountableOrdRank_all_acc a
+theorem NormalCountableOrd_acc_of_rank_acc (a : NormalCountableOrd)
+        (ha : Acc CountableOrdRank_lt (NormalCountableOrd_rank a)) :
+        Acc NormalCountableOrd_lt a := by sorry
+theorem countableOrd_lt_wf : WellFounded NormalCountableOrd_lt := by
+  constructor
+  intro a
+  apply NormalCountableOrd_acc_of_rank_acc a
+  exact CountableOrdRank_all_acc
+    (NormalCountableOrd_rank a)
