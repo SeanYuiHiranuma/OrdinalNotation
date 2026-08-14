@@ -2660,161 +2660,281 @@ theorem NormalPrincipalRank_acc_of_eq {p q : NormalPrincipalRank}
   subst q
   exact hp
 
+theorem NormalPrincipalListRank_cons_acc (p : NormalPrincipalRank)
+        (hp : Acc NormalPrincipalRank_lt p)
+        (hsmall : ∀ q : NormalPrincipalRank, q <npr p →
+                  ∀ qs : NormalPrincipalListRank, PrincipalListRank_bounded_by q.1 qs.1 →
+                  Acc NormalPrincipalListRank_lt qs)
+        (ps : NormalPrincipalListRank) (hps : Acc NormalPrincipalListRank_lt ps)
+        (hcons : PrincipalListRank_normal (p.1 :: ps.1)) :
+        Acc NormalPrincipalListRank_lt ⟨p.1 :: ps.1, hcons⟩ := by
+  induction hps generalizing p with
+  -- hpred : ∀ys : NormalPrincipalListRank, ys <npr xs → Acc NormalPrincipalListRank_lt ys
+  -- ih : ∀ys : NormalPrincipalListRank, ys <npr xs → (p) → (hp) → (hsmall) → (hcons) → goal
+  | intro xs hpred ih =>
+    apply Acc.intro -- goal : ∀ys : NormalPrincipalListRank, ys <nplr ⟨p.1 :: ps.1, hcons⟩ →
+                    --        Acc NormalPrincipalListRank_lt ys
+    rintro ⟨ys, hys_normal⟩ hlt -- hlt : ys <nplr ⟨p.1 :: ps.1, hcons⟩
+                                -- goal : Acc NormalPrincipalListRank_lt ys
+    cases ys with
+    | nil => exact NormalPrincipalListRank_nil_acc
+    | cons q qs => --ys = q :: qs
+      change PrincipalListRank_lt (q :: qs) (p.1 :: xs.1) at hlt
+      cases hlt with
+      | head hqp =>
+        -- hqp : q < p.1
+        let qN : NormalPrincipalRank := ⟨q, NormalPrincipalListRank_normalHead hys_normal⟩
+        apply hsmall qN hqp ⟨q :: qs, hys_normal⟩
+        /- qN : NormalPrincipalRank, hqp :qN <npr p
+           ys = ⟨q :: qs, hys_normal⟩ : NormalPrincipalListRank,
+           New Goal : PrincipalListRank_bounded_by qN.1 ys.1 -/
+        --  (qN.1 → ys.1 →) ∀ q, q ∈ ys.1 → PrincipalRank_lt q qN ∨ q = qN
+        intro r hr
+        simp only [List.mem_cons] at hr
+        rcases hr with rfl | hr
+        -- hr : q ∈ (Tail of ys.1)
+        · exact Or.inr rfl
+        · exact PrincipalListRank_normal_tail_bounded hys_normal r hr
+      | tail heq htail =>
+        -- heq : (head of ys) = (head of ⟨p.1 :: ps.1, hcons⟩)
+        -- htail : (tail of ys) = (tail of ⟨p.1 :: ps.1, hcons⟩)
+        let qN : NormalPrincipalRank := ⟨q, NormalPrincipalListRank_normalHead hys_normal⟩
+        let qsN : NormalPrincipalListRank := ⟨qs, NormalPrincipalListRank_normalTail hys_normal⟩
+        have htailN : qsN <nplr xs := htail
+        have hqAcc : Acc NormalPrincipalRank_lt qN := by
+          apply NormalPrincipalRank_acc_of_eq hp
+          exact heq.symm
+        have hsmallQ : ∀ r : NormalPrincipalRank, r <npr qN →
+                       ∀ rs : NormalPrincipalListRank, PrincipalListRank_bounded_by r.1 rs.1 →
+                       Acc NormalPrincipalListRank_lt rs := by
+          intro r hr rs hrs
+          apply hsmall r
+          /- new goal :
+              q <npr p → ∀ rs : NormalPrincipalListRank, PrincipalListRank_bounded_by r.1 rs.1 -/
+          · change PrincipalRank_lt r.1 p.1
+            change PrincipalRank_lt r.1 q at hr
+            simpa [heq] using hr
+          · exact hrs
+        exact ih qsN htailN qN hqAcc hsmallQ hys_normal
+
+
 theorem NormalPrincipalListRank_acc_of_bound_acc (p : NormalPrincipalRank)
         (hp : Acc NormalPrincipalRank_lt p) (ps : NormalPrincipalListRank)
         (hbound : PrincipalListRank_bounded_by p.1 ps.1) :
         Acc NormalPrincipalListRank_lt ps := by
+  revert ps -- Goal : (ps) → (hbound) → Acc NormalPrinciipalListRank_lt ps
   induction hp with
-  -- hqlt : ∀q:NormalPrincipalRank, NormalPrincipalRank_lt q p → Acc NormalPrincipalRank_lt q
-  /- ih : ∀q:NormalPrincipalRank, NormalPrincipalRank_lt q p →
-          qs : NormalPrincipalListRank → hbound : PrincipalListRank_bounded_by q.1 qs.1 →
-          Acc NormalPrincipalListRank_lt qs -/
-  | intro p hqlt ih =>
-    rcases ps with ⟨xs, hxs⟩
-    cases xs with
-    | nil => exact NormalPrincipalListRank_nil_acc
-    | cons q qs =>
-      have hb : PrincipalRank_lt q p.1 ∨ q = p.1 :=
-        sorry
-      rcases hb with hblt | hbeq
-      · exact ih
-
-
+  -- hpred : ∀q : NormalPrincipalRank, q <npr p → Acc NormalPrincipalRank_lt q
+  /- ih : ∀q : NormalPrincipalRank, q <npr p → (hq : Acc NormalPrincipalRank_lt q) →
+          (qs : NormalPrincipalList Rank) → (hbound : PrincipalListRank_bounded_by q.1 qs.1)
+          → Acc NormalPrincipalListRank_lt qs -/
+  | intro p hpred ih =>
+    rintro ⟨ps, hps⟩ hbound -- Goal : Acc NormalPrinciipalListRank_lt ⟨ps, hps⟩
+    have proveList : ∀ xs : List PrincipalRank, ∀ hxs : PrincipalListRank_normal xs,
+              PrincipalListRank_bounded_by p.1 xs →
+              Acc NormalPrincipalListRank_lt ⟨xs, hxs⟩ := by
+      intro xs /- Goal : ∀ hxs : PrincipalListRank_normal xs, PrincipalListRank_bounded_by p.1 xs →
+                         Acc NormalPrincipalListRanK_lt ⟨xs, hxs⟩ -/
+      induction xs with
+      | nil => intro hxs hbound
+               exact NormalPrincipalListRank_nil_acc
+      -- xs = q :: qs
+      /- ihTail : (∀ ys : List PrincipalRank, PrincipalListRank_lt ys xs (q :: qs) → )
+                  ∀ hys : PrincipalListRank_normal ys →
+                  PrincipalListRank_bounded_by p.1 ys →
+                  Acc NormalPrincipalListRank_lt ⟨ys, hys⟩  -/
+      | cons q qs ihTail =>
+        intro hnormal hbound  -- hnormal : ∀ hxs : PrincipalListRank_normal xs
+                              -- hbound : PrincipalListRank_bounded_by p.1 xs
+                              -- Goal : Acc NormalPrincipalListRank_lt
+        have hq_normal : PrincipalRank_normal q := NormalPrincipalListRank_normalHead hnormal
+        have hqs_normal : PrincipalListRank_normal qs := NormalPrincipalListRank_normalTail hnormal
+        let qN : NormalPrincipalRank := ⟨q, hq_normal⟩
+        let qsN : NormalPrincipalListRank := ⟨qs, hqs_normal⟩
+        -- qsN is accessible
+        have hTailBounded : PrincipalListRank_bounded_by p.1 qs := by
+          --  p → ps → ∀ q, q ∈ ps → PrincipalRank_lt q p ∨ q = p
+          intro r hr /- hr : r ∈ qs
+                        Goal : PrincipalRank_lt r p.1 ∨ r = p.1 -/
+          exact hbound r (List.mem_cons_of_mem q hr)
+        have htailAcc : Acc NormalPrincipalListRank_lt qsN := by
+          exact ihTail hqs_normal hTailBounded
+        have hqle : PrincipalRank_lt q p.1 ∨ q = p.1 :=
+          hbound q List.mem_cons_self
+        rcases hqle with hqp | hqeqp
+        -- We apply NormalPrincipalListRank_cons_acc
+        /- (p : NormalPrincipalRank) → (hp : Acc NormalPrincipalRank_lt p) →
+           (hsmall : ∀ q : NormalPrincipalRank, q <npr p →
+                  ∀ qs : NormalPrincipalListRank, PrincipalListRank_bounded_by q.1 qs.1 →
+                  Acc NormalPrincipalListRank_lt qs) →
+           (ps : NormalPrincipalListRank) → (hps : Acc NormalPrincipalListRank_lt ps) →
+           (hcons : PrincipalListRank_normal (p.1 :: ps.1)) :
+           Acc NormalPrincipalListRank_lt ⟨p.1 :: ps.1, hcons⟩-/
+        -- We want qN accessible
+        -- 1st case when hqp : PrincipalRank_lt q p.1
+        · have hqAcc : Acc NormalPrincipalRank_lt qN :=
+            hpred qN hqp
+          have hqsmall : ∀ r : NormalPrincipalRank, r <npr qN →
+                         ∀ rs : NormalPrincipalListRank, PrincipalListRank_bounded_by r.1 rs.1 →
+                         Acc NormalPrincipalListRank_lt rs := by
+            intro r hrqN rs hrsbound
+            apply ih r /- new goal :  r <npr p → (hq : Acc NormalPrincipalRank_lt r) →
+                                      (rs : NormalPrincipalList Rank) →
+                                      (hbound : PrincipalListRank_bounded_by r.1 rs.1) -/
+            · change PrincipalRank_lt r.1 p.1
+              change PrincipalRank_lt r.1 q at hrqN
+              exact PrincipalRank_lt_trans hrqN hqp
+            · exact hrsbound
+          exact NormalPrincipalListRank_cons_acc qN hqAcc hqsmall qsN htailAcc hnormal
+        -- 2ns case when hqeqp : q = p.1 (same proof)
+        · have hpAcc : Acc NormalPrincipalRank_lt p := Acc.intro p hpred
+          have hqAcc : Acc NormalPrincipalRank_lt qN := by
+            apply NormalPrincipalRank_acc_of_eq hpAcc
+            exact hqeqp.symm
+          have hqsmall : ∀ r : NormalPrincipalRank, r <npr qN →
+                         ∀ rs : NormalPrincipalListRank, PrincipalListRank_bounded_by r.1 rs.1 →
+                         Acc NormalPrincipalListRank_lt rs := by
+            intro r hr rs hrs
+            apply ih r
+            · change PrincipalRank_lt r.1 p.1
+              change PrincipalRank_lt r.1 q at hr
+              rw [hqeqp] at hr
+              exact hr
+            · exact hrs
+          exact NormalPrincipalListRank_cons_acc qN hqAcc hqsmall qsN htailAcc hnormal
+    exact proveList ps hps hbound
 
 
 -- If the head of a normal list is accessible, then the whole list is accessible.
-theorem NormalPrincipalListRank_acc
-    {p : PrincipalRank}
-    {ps : List PrincipalRank}
-    (hnormal : PrincipalListRank_normal (p :: ps))
-    (hp :
-      Acc NormalPrincipalRank_lt
-        ⟨p, NormalPrincipalListRank_normalHead hnormal⟩) :
-    Acc NormalPrincipalListRank_lt
-      ⟨p :: ps, hnormal⟩ := by
-  sorry
+theorem NormalPrincipalListRank_acc {p : PrincipalRank} {ps : List PrincipalRank}
+        (hnormal : PrincipalListRank_normal (p :: ps))
+        (hp : Acc NormalPrincipalRank_lt ⟨p, NormalPrincipalListRank_normalHead hnormal⟩) :
+        Acc NormalPrincipalListRank_lt ⟨p :: ps, hnormal⟩ := by
+  -- We use the previous theorem
+  /- (p : NormalPrincipalRank) (hp : Acc NormalPrincipalRank_lt p) (ps : NormalPrincipalListRank)
+     (hbound : PrincipalListRank_bounded_by p.1 ps.1) :
+     Acc NormalPrincipalListRank_lt ps := by -/
+  apply NormalPrincipalListRank_acc_of_bound_acc
+        ⟨p, NormalPrincipalListRank_normalHead hnormal⟩ hp ⟨p :: ps, hnormal⟩
+  -- new goal : PrincipalListRank_bounded_by p ps
+  --            ∀ q, q ∈ ps → PrincipalRank_lt q p ∨ q = p
+  intro q hq
+  simp only [List.mem_cons] at hq
+  rcases hq with rfl | hq
+  · exact Or.inr rfl
+  · exact PrincipalListRank_normal_tail_bounded hnormal q hq
+
+theorem NormalCountableOrdRank_acc {ps : NormalPrincipalListRank}
+        (hps : Acc NormalPrincipalListRank_lt ps) :
+        Acc NormalCountableOrdRank_lt ⟨CountableOrdRank.sum ps.1, CountableOrdRank_normal.sum ps.2⟩
+        := by
+  induction hps with
+  -- hpred : ∀ qs : NPLR, qs < nplr ps → Acc NPLR qs
+  -- ih : hpred → Acc NCOR_lt ⟨CountableOrdRank.sum qs.1, CountableOrdRank_normal.sum qs.2⟩
+  | intro ps hpred ih =>
+    apply Acc.intro
+    /- new goal : ∀ rs : NCOR, NCOR_lt rs ⟨COR.sum ps.1, COR_normal.sum ps.2⟩
+                  → Acc NCOR_lt ⟨COR.sum rs.1, COR_normal.sum rs.2⟩ -/
+    rintro ⟨r, hr⟩ hlt
+    cases r with
+    | sum qs => cases hr with
+                | sum hqsNormal => cases hlt with
+                                   | sum hqsLt => exact ih ⟨qs, hqsNormal⟩ hqsLt
+
+theorem CountableOrdRank_ofPrincipal_normal {p : PrincipalRank} (hp : PrincipalRank_normal p) :
+        CountableOrdRank_normal (CountableOrdRank.sum [p]) := by
+  apply CountableOrdRank_normal.sum
+  exact PrincipalListRank_normal.singleton hp
 
 
--- -------------------------------------------------------------------------------
--- 5. Lift accessibility of a normal list to its CountableOrdRank.sum
--- -------------------------------------------------------------------------------
+def NormalPrincipalRank_toCountable (p : NormalPrincipalRank) : NormalCountableOrdRank :=
+    ⟨CountableOrdRank.sum [p.1], CountableOrdRank_ofPrincipal_normal p.2⟩
 
-theorem NormalCountableOrdRank_acc
-    {ps : NormalPrincipalListRank}
-    (hps : Acc NormalPrincipalListRank_lt ps) :
-    Acc NormalCountableOrdRank_lt
-      ⟨CountableOrdRank.sum ps.1,
-        CountableOrdRank_normal.sum ps.2⟩ := by
-  sorry
+theorem NormalPrincipalRank_toCountable_lt {p q : NormalPrincipalRank} (h : p <npr q) :
+        NormalPrincipalRank_toCountable p <ncr NormalPrincipalRank_toCountable q := by
+  change CountableOrdRank_lt (.sum [p.1]) (.sum [q.1])
+  exact CountableOrdRank_lt.sum (PrincipalListRank_lt.head h)
 
+theorem NormalPrincipalRank_acc_of_singleton_acc (p : NormalPrincipalRank)
+        (hp : Acc NormalCountableOrdRank_lt (NormalPrincipalRank_toCountable p)) :
+        Acc NormalPrincipalRank_lt p := by
+  -- Proof strategy is to convert principal to countableOrd by embedding
+  let embed : NormalPrincipalRank → NormalCountableOrdRank :=
+    NormalPrincipalRank_toCountable
+  have embed_lt {q r : NormalPrincipalRank} (hqr : q <npr r) : embed q <ncr embed r := by
+    exact NormalPrincipalRank_toCountable_lt hqr
+  have aux : ∀ a : NormalCountableOrdRank, Acc NormalCountableOrdRank_lt a →
+             ∀ r : NormalPrincipalRank, embed r = a →
+             Acc NormalPrincipalRank_lt r := by
+    intro a ha -- goal : ∀ r : NormalPrincipalRank, embed r = a → Acc NormalPrincipalRank_lt r
+    induction ha with
+    -- hpred : ∀ b : NCOR, b < ncr a → Acc NCOR_lt b
+    /- ih : ∀ b : NCOR, b < ncr a →
+            ∀ r : NormalPrincipalRank, embed r = b →
+            Acc NormalPrincipalRank_lt r -/
+    | intro a hpred ih =>
+      intro r hra -- new goal : Acc NormalPrincipalRank_lt r
+      apply Acc.intro -- new goal : ∀ s : NPR, s <npr r → Acc NormalPrincipalRank_lt s
+      intro s hsr -- new goal : Acc NormalPrincipalRank_lt s
+      have hsa : embed s <ncr a := by rw [← hra]; exact embed_lt hsr
+      exact ih (embed s) hsa s rfl
+  exact aux (embed p) hp p rfl
 
--- -------------------------------------------------------------------------------
--- 6. Singleton embedding of a normal principal rank
--- -------------------------------------------------------------------------------
+theorem OmegaTermRank_normal_alpha {a g : OmegaTermRank} {b : CountableOrdRank}
+        (h : OmegaTermRank_normal (.omegaNF a b g)) :
+        OmegaTermRank_normal a := by
+  cases h with
+  | omegaNF ha _ _ _ _ => exact ha
 
-theorem CountableOrdRank_ofPrincipal_normal
-    {p : PrincipalRank}
-    (hp : PrincipalRank_normal p) :
-    CountableOrdRank_normal
-      (CountableOrdRank.sum [p]) := by
-  sorry
+theorem OmegaTermRank_normal_beta {a g : OmegaTermRank} {b : CountableOrdRank}
+        (h : OmegaTermRank_normal (.omegaNF a b g)) :
+        CountableOrdRank_normal b := by
+  cases h with
+  | omegaNF _ hb _ _ _ => exact hb
 
+theorem OmegaTermRank_normal_gamma {a g : OmegaTermRank} {b : CountableOrdRank}
+        (h : OmegaTermRank_normal (.omegaNF a b g)) :
+        OmegaTermRank_normal g := by
+  cases h with
+  | omegaNF _ _ hg _ _ => exact hg
 
-def NormalPrincipalRank_toCountable
-    (p : NormalPrincipalRank) :
-    NormalCountableOrdRank :=
-  ⟨CountableOrdRank.sum [p.1],
-    CountableOrdRank_ofPrincipal_normal p.2⟩
+theorem OmegaTermRank_normal_beta_pos {a g : OmegaTermRank} {b : CountableOrdRank}
+        (h : OmegaTermRank_normal (.omegaNF a b g)) :
+        CountableOrdRank_lt CountableOrdRank.zero b := by
+  cases h with
+  | omegaNF _ _ _ hpos _ => exact hpos
 
+theorem OmegaTermRank_normal_remainder_lt {a g : OmegaTermRank} {b : CountableOrdRank}
+        (h : OmegaTermRank_normal (.omegaNF a b g)) :
+        OmegaTermRank_lt g (.omegaNF a CountableOrdRank.one .zero) := by
+  cases h with
+  | omegaNF _ _ _ _ hrem => exact hrem
 
-theorem NormalPrincipalRank_toCountable_lt
-    {p q : NormalPrincipalRank}
-    (h : p <npr q) :
-    NormalPrincipalRank_toCountable p <ncr
-      NormalPrincipalRank_toCountable q := by
-  sorry
+theorem OmegaTermRank_normal_coefficient {o : OmegaTermRank} (ho : OmegaTermRank_normal o)
+        {c : CountableOrdRank} (hc : c ∈ OmegaTermRank.coefficients o) :
+        CountableOrdRank_normal c := by
+  cases o with
+  | zero =>
+      simp only [OmegaTermRank.coefficients, List.mem_singleton] at hc
+      subst c
+      exact CountableOrdRank_normal.sum PrincipalListRank_normal.nil
+  | omegaNF a b g =>
+      cases ho with
+      | omegaNF ha hb hg hpos hrem =>
+          simp only [OmegaTermRank.coefficients, List.mem_append,
+                     List.mem_singleton] at hc
+          rcases hc with (hcA | hcG) | hcB
+          · exact OmegaTermRank_normal_coefficient ha hcA
+          · exact OmegaTermRank_normal_coefficient hg hcG
+          · subst c
+            exact hb
 
-
-theorem NormalPrincipalRank_acc_of_singleton_acc
-    (p : NormalPrincipalRank)
-    (hp :
-      Acc NormalCountableOrdRank_lt
-        (NormalPrincipalRank_toCountable p)) :
-    Acc NormalPrincipalRank_lt p := by
-  sorry
-
-
--- -------------------------------------------------------------------------------
--- 7. Extract components of a normal OmegaTermRank
--- -------------------------------------------------------------------------------
-
-theorem OmegaTermRank_normal_alpha
-    {a g : OmegaTermRank}
-    {b : CountableOrdRank}
-    (h :
-      OmegaTermRank_normal
-        (.omegaNF a b g)) :
-    OmegaTermRank_normal a := by
-  sorry
-
-
-theorem OmegaTermRank_normal_beta
-    {a g : OmegaTermRank}
-    {b : CountableOrdRank}
-    (h :
-      OmegaTermRank_normal
-        (.omegaNF a b g)) :
-    CountableOrdRank_normal b := by
-  sorry
-
-
-theorem OmegaTermRank_normal_gamma
-    {a g : OmegaTermRank}
-    {b : CountableOrdRank}
-    (h :
-      OmegaTermRank_normal
-        (.omegaNF a b g)) :
-    OmegaTermRank_normal g := by
-  sorry
-
-
-theorem OmegaTermRank_normal_beta_pos
-    {a g : OmegaTermRank}
-    {b : CountableOrdRank}
-    (h :
-      OmegaTermRank_normal
-        (.omegaNF a b g)) :
-    CountableOrdRank_lt CountableOrdRank.zero b := by
-  sorry
-
-
-theorem OmegaTermRank_normal_remainder_lt
-    {a g : OmegaTermRank}
-    {b : CountableOrdRank}
-    (h :
-      OmegaTermRank_normal
-        (.omegaNF a b g)) :
-    OmegaTermRank_lt
-      g
-      (.omegaNF a CountableOrdRank.one .zero) := by
-  sorry
-
-
--- -------------------------------------------------------------------------------
--- 8. Coefficients stored in a normal PrincipalRank are normal
---
--- IMPORTANT:
--- This theorem requires PrincipalRank_normal to contain enough information
--- to know that every c ∈ cs is CountableOrdRank_normal.
--- -------------------------------------------------------------------------------
-
-theorem PrincipalRank_normal_coefficient
-    {o : OmegaTermRank}
-    (h : PrincipalRank_normal (.psi o))
-    {c : CountableOrdRank}
-    (hc : c ∈ OmegaTermRank.coefficients o) :
-    CountableOrdRank_normal c := by
-  sorry
+theorem PrincipalRank_normal_coefficient {o : OmegaTermRank} (h : PrincipalRank_normal (.psi o))
+        {c : CountableOrdRank} (hc : c ∈ OmegaTermRank.coefficients o) :
+        CountableOrdRank_normal c := by
+  cases h with
+  | psi harg hcoeff =>
+      exact OmegaTermRank_normal_coefficient harg hc
 
 
 -- -------------------------------------------------------------------------------
