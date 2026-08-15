@@ -1651,6 +1651,209 @@ theorem coefficient_normal_of_mem {o : omegaTerm} {c : countableOrd}
       simp [omegaTerm_cmplx] <;> omega
 
 --========================================================================================
+-- Some Notes
+--========================================================================================
+/-
+We tried two methods of measuring the complexity of our notations. One was by (1) defining a single
+natural-number structural complexity measuring the total syntactic size of a term, and the other was
+by (2) defining a recursive lexicographic rank that mirrors the term’s exponent–coefficient–r
+emainder structure so comparison decreases by the first differing coordinate. However, both reach
+the same problem : a ciruclar proof. We try a different method. We attempt to map our
+notations to some field, which is already assured to be well-ordered, in an order preserving manner.
+-/
+/-
+The outline is follows:
+1. Define the canonical evaluation
+2. Show Equality is preserved through the evaluation mapping
+3. Define the evaluation of the coefficient
+4. Prove every semantic coefficient is below Ω
+   Important concept Pohler introduces is the collapsing function to map the Ω-normal form
+   to ordinals under Ω
+-/
+
+--========================================================================================
+-- Mapping the Notation to Ordinal (Lean)
+--========================================================================================
+--========================================================================================
+-- Semantic interpretation into Mathlib ordinals
+
+noncomputable section
+-- Ω is the first uncountable ordinal ω₁
+def BH_Omega : Ordinal := Ordinal.omega 1
+-- P = {ω ^ α : α ∈ Ord}
+def BN_P : Set Ordinal := Set.range (fun α : Ordinal => Ordinal.omega0 ^ α)
+end
+
+mutual
+noncomputable def countableOrd_evalWith (theta : Ordinal → Ordinal) : countableOrd → Ordinal
+  | .sum ps => principalList_evalWith theta ps
+noncomputable def principal_evalWith (theta : Ordinal → Ordinal) : principal → Ordinal
+  | .psi a => theta (omegaTerm_evalWith theta a)
+noncomputable def principalList_evalWith (theta : Ordinal → Ordinal) : List principal → Ordinal
+  | [] => 0
+  | p :: ps => principal_evalWith theta p + principalList_evalWith theta ps
+noncomputable def omegaTerm_evalWith (theta : Ordinal → Ordinal) : omegaTerm → Ordinal
+  | .zero => 0
+  | .omegaNF alpha beta gamma =>
+    BH_Omega ^ omegaTerm_evalWith theta alpha * countableOrd_evalWith theta beta +
+    omegaTerm_evalWith theta gamma
+end
+
+--========================================================================================
+-- Equality is preserved
+
+mutual
+theorem countableOrd_eq_evalWith_eq (theta : Ordinal → Ordinal) {a b : countableOrd} (h : a=cb) :
+        countableOrd_evalWith theta a = countableOrd_evalWith theta b := by
+  cases h with
+  | sum pListEq => simp only [countableOrd_evalWith]
+                   exact principalList_eq_evalWith_eq theta pListEq
+theorem principal_eq_evalWith_eq (theta : Ordinal → Ordinal) {p q : principal} (h : p =p q) :
+        principal_evalWith theta p = principal_evalWith theta q := by
+  cases h with
+  | psi harg => simp only [principal_evalWith]
+                rw [omegaTerm_eq_evalWith_eq theta harg]
+theorem principalList_eq_evalWith_eq (theta : Ordinal → Ordinal) {ps qs : List principal}
+        (h : principalList_eq ps qs) :
+        principalList_evalWith theta ps = principalList_evalWith theta qs := by
+  cases h with
+  | nil => rfl
+  | cons head tail =>
+    simp only [principalList_evalWith]
+    rw [principal_eq_evalWith_eq theta head, principalList_eq_evalWith_eq theta tail]
+theorem omegaTerm_eq_evalWith_eq (theta : Ordinal → Ordinal) {a b : omegaTerm} (h : a =o b) :
+        omegaTerm_evalWith theta a = omegaTerm_evalWith theta b := by
+  cases h with
+  | zero => rfl
+  | omegaNF alpha beta gamma =>
+    simp only [omegaTerm_evalWith]
+    rw [omegaTerm_eq_evalWith_eq theta alpha, countableOrd_eq_evalWith_eq theta beta,
+        omegaTerm_eq_evalWith_eq theta gamma]
+end
+
+--========================================================================================
+-- Some properties
+
+-- countbaleOrd 0 maps to Lean ordinal 0
+@[simp]
+theorem countableOrd_evalWith_zero (theta : Ordinal → Ordinal) :
+        countableOrd_evalWith theta countableOrd.zero = 0 := by rfl
+
+-- Unfold the evaluation of ψ(a)
+@[simp]
+theorem principal_evalWith_psi (theta : Ordinal → Ordinal) (o : omegaTerm) :
+        principal_evalWith theta (.psi o) = theta (omegaTerm_evalWith theta o) := by
+  rfl
+
+-- List principal [] maps to Lean ordinal 0
+@[simp]
+theorem principalList_evalWith_nil (theta : Ordinal → Ordinal) :
+        principalList_evalWith theta [] = 0 := by rfl
+
+-- Break up the evaluation of a list
+@[simp]
+theorem principalList_evalWith_cons (theta : Ordinal → Ordinal) (p : principal)
+        (ps : List principal) :
+        principalList_evalWith theta (p :: ps) =
+        principal_evalWith theta p + principalList_evalWith theta ps := by rfl
+
+-- Transformation of principal and countableOrd and its equality
+@[simp]
+theorem countableOrd_evalWith_ofPrincipal (theta : Ordinal → Ordinal) (p : principal) :
+        countableOrd_evalWith theta (countableOrd.ofPrincipal p) = principal_evalWith theta p := by
+  simp [countableOrd.ofPrincipal,
+        countableOrd_evalWith,
+        principalList_evalWith]
+
+-- omegaTerm 0 maps to Lean ordinal 0
+@[simp]
+theorem omegaTerm_evalWith_zero (theta : Ordinal → Ordinal) :
+        omegaTerm_evalWith theta omegaTerm.zero = 0 := by rfl
+
+-- Evaluation of omegaNF
+@[simp]
+theorem omegaTerm_evalWith_omegaNF (theta : Ordinal → Ordinal) (a g : omegaTerm)
+        (b : countableOrd) :
+        omegaTerm_evalWith theta (.omegaNF a b g) =
+        BH_Omega ^ omegaTerm_evalWith theta a * countableOrd_evalWith theta b +
+        omegaTerm_evalWith theta g := by rfl
+
+--===============================================================================
+-- Semantic coefficient set C(ξ) and maximal coefficient ξ*
+--===============================================================================
+/- For an Ω-normal form ζ = Ω^{α}β + γ, Pohlers defines a function
+        C(0) = {0}, C(Ω^{α}β + γ) = C(α) ∪ C(γ) ∪ {β}
+   and the maximal coefficient ζ^* := max C(ζ) -/
+
+-- BHCoeff (ζ, c) to mean c ∈ C (ζ)
+inductive BHCoeff : Ordinal → Ordinal → Prop where
+  | zero : BHCoeff 0 0
+  -- ξ = Ω^{e}c → c ∈ C(ζ)
+  | coefficient {ξ e c : Ordinal} (h : (e, c) ∈ Ordinal.CNF BH_Omega ξ) : BHCoeff ξ c
+  -- ξ = Ω^{e}c → d ∈ C(e) → d ∈ C(ζ)
+  | exponent {ξ e c d : Ordinal} (hpair : (e, c) ∈ Ordinal.CNF BH_Omega ξ) (hd : BHCoeff e d) :
+    BHCoeff ξ d
+
+-- We define the set of coefficients (which is an ordinal ofc) if ξ
+def BH_C (ξ : Ordinal) : Set Ordinal := {c | BHCoeff ξ c}
+
+-- Retrieve the max coefficient (and its evaluated value) from a notation
+noncomputable def BH_star (ξ : Ordinal) : Ordinal := sSup (BH_C ξ)
+
+theorem BH_C_zero : 0 ∈ BH_C 0 := by exact BHCoeff.zero
+theorem BH_C_of_CNF {ξ e c : Ordinal} (h : (e, c) ∈ Ordinal.CNF BH_Omega ξ) : c ∈ BH_C ξ := by
+  exact BHCoeff.coefficient h
+theorem BH_C_of_exponent {ξ e c d : Ordinal} (hpair : (e, c) ∈ Ordinal.CNF BH_Omega ξ)
+        (hd : d ∈ BH_C e) : d ∈ BH_C ξ := by
+  exact BHCoeff.exponent hpair hd
+
+--===============================================================================
+-- Mapping to under Ω
+--===============================================================================
+-- 1 < Ω
+theorem BH_Omega_one_lt : (1 : Ordinal) < BH_Omega := by
+  have h1 : (1 : Ordinal) < Ordinal.omega0 := Ordinal.one_lt_omega0
+  have h2 : Ordinal.omega0 < Ordinal.omega 1 := Ordinal.omega0_lt_omega_one
+  exact lt_trans h1 h2
+
+-- every coefficient of ξ is less than Ω
+theorem BHCoeff_lt_Omega {ξ c : Ordinal} (h : BHCoeff ξ c) : c < BH_Omega := by
+  induction h with
+  | zero => exact Ordinal.omega_pos 1
+  | coefficient hcnf => exact Ordinal.CNF.snd_lt BH_Omega_one_lt hcnf
+  | exponent hpair hd ih => exact ih
+
+theorem BH_C_lt_Omega {ξ c : Ordinal} (hc : c ∈ BH_C ξ) : c < BH_Omega := by
+  exact BHCoeff_lt_Omega hc
+
+-- The set of coefficients of ξ is bounded above
+theorem BH_C_bddAbove (ξ : Ordinal) : BddAbove (BH_C ξ) := by
+  refine ⟨BH_Omega, ?_⟩; intro c hc; exact le_of_lt (BH_C_lt_Omega hc)
+
+-- Every coefficient is less than the max
+theorem BH_C_le_star {ξ c : Ordinal} (hc : c ∈ BH_C ξ) : c ≤ BH_star ξ := by
+  unfold BH_star; exact le_csSup (BH_C_bddAbove ξ) hc
+
+-- Prove that for any ordinal, it coefficient set is nonempty
+theorem BH_C_nonempty (ξ : Ordinal) : (BH_C ξ).Nonempty := by
+  by_cases hξ : ξ = 0
+  · subst ξ -- goal : (BH_C 0).Nonempty
+    exact ⟨0, BH_C_zero⟩
+  · have hcnf : (Ordinal.log BH_Omega ξ, ξ / BH_Omega ^ Ordinal.log BH_Omega ξ) ∈
+                Ordinal.CNF BH_Omega ξ := by
+      rw [Ordinal.CNF.ne_zero hξ]
+      exact List.mem_cons_self
+    exact ⟨ξ / BH_Omega ^ Ordinal.log BH_Omega ξ, BH_C_of_CNF hcnf⟩
+
+-- The max coefficient is less than Ω
+theorem BH_star_le_Omega (ξ : Ordinal) : BH_star ξ ≤ BH_Omega := by
+  unfold BH_star
+  apply csSup_le (BH_C_nonempty ξ)
+  intro c hc
+  exact le_of_lt (BH_C_lt_Omega hc)
+
+/-
+--========================================================================================
 -- Structural Complexity 2 (Rank)
 --========================================================================================
 /- Outline
@@ -2936,47 +3139,45 @@ theorem PrincipalRank_normal_coefficient {o : OmegaTermRank} (h : PrincipalRank_
   | psi harg hcoeff =>
       exact OmegaTermRank_normal_coefficient harg hc
 
-
--- -------------------------------------------------------------------------------
--- 9. Accessibility helper for a normal omegaNF rank
---
--- This is the normal-rank analogue of OmegaTermRank_omegaNF_acc.
--- -------------------------------------------------------------------------------
-
-theorem NormalOmegaTermRank_omegaNF_acc
-    {a g : OmegaTermRank}
-    {b : CountableOrdRank}
-    (hnormal :
-      OmegaTermRank_normal (.omegaNF a b g))
-    (hAlpha :
-      ∀ a',
-        OmegaTermRank_normal a' →
-        OmegaTermRank_lt a' a →
-        ∀ b' g',
-          OmegaTermRank_normal (.omegaNF a' b' g') →
-          Acc NormalOmegaTermRank_lt
-            ⟨.omegaNF a' b' g', by assumption⟩)
-    (hBeta :
-      ∀ b',
-        CountableOrdRank_normal b' →
-        CountableOrdRank_lt b' b →
-        ∀ g',
-          OmegaTermRank_normal (.omegaNF a b' g') →
-          Acc NormalOmegaTermRank_lt
-            ⟨.omegaNF a b' g', by assumption⟩)
-    (hGamma :
-      Acc NormalOmegaTermRank_lt
-        ⟨g, OmegaTermRank_normal_gamma hnormal⟩) :
-    Acc NormalOmegaTermRank_lt
-      ⟨.omegaNF a b g, hnormal⟩ := by
-  sorry
-
-
--- -------------------------------------------------------------------------------
--- 10. Global accessibility of normal ranks
---
--- These are the main theorems.
--- -------------------------------------------------------------------------------
+theorem NormalOmegaTermRank_omegaNF_acc {a g : OmegaTermRank} {b : CountableOrdRank}
+        (hnormal : OmegaTermRank_normal (.omegaNF a b g))
+        (hAlpha : ∀ a', OmegaTermRank_normal a' → OmegaTermRank_lt a' a →
+                  ∀ b' g', ∀ hnormal' : OmegaTermRank_normal (.omegaNF a' b' g'),
+                  Acc NormalOmegaTermRank_lt ⟨.omegaNF a' b' g', hnormal'⟩)
+        (hBeta : ∀ b', CountableOrdRank_normal b' → CountableOrdRank_lt b' b →
+                 ∀ g', ∀ hnormal' : OmegaTermRank_normal (.omegaNF a b' g'),
+                 Acc NormalOmegaTermRank_lt ⟨.omegaNF a b' g', hnormal'⟩)
+        (hGamma : Acc NormalOmegaTermRank_lt ⟨g, OmegaTermRank_normal_gamma hnormal⟩) :
+        Acc NormalOmegaTermRank_lt ⟨.omegaNF a b g, hnormal⟩ := by
+  have aux : ∀ gN : NormalOmegaTermRank, Acc NormalOmegaTermRank_lt gN →
+             ∀ hnf : OmegaTermRank_normal (.omegaNF a b gN.1),
+             Acc NormalOmegaTermRank_lt ⟨.omegaNF a b gN.1, hnf⟩ := by
+    intro gN hgAcc -- goal : ∀ hnf : OmegaTermRank_normal (.omegaNF a b gN.1),
+                   --        Acc NormalOmegaTermRank_lt ⟨.omegaNF a b gN.1, hnf⟩
+    induction hgAcc with
+    -- hpred : ∀ iN : NOTR, iN <nor gN → Acc NOTR_lt iN
+    /- ih : ∀ iN : NOTR, iN <nor gN →
+            ∀ hnf : OmegaTermRank_normal (.omegaNF a b iN.1),
+             Acc NormalOmegaTermRank_lt ⟨.omegaNF a b iN.1, hnf⟩ -/
+    | intro gN hpred ih =>
+      intro hnf -- new goal : Acc NormalOmegaTermRank_lt ⟨.omegaNF a b gN.1, hnf⟩
+      apply Acc.intro -- new goal : ∀ ⟨x, hxnormal⟩ < ⟨.omegaNF a b gN.1, hnf⟩ → Acc NOTR_lt ⟨x, hxnormal⟩
+      rintro ⟨x, hxnormal⟩ hxlt
+      -- hxlt : NormalOmegaTermRank_lt ⟨x, hxnormal⟩ ⟨.omegaNF a b gN.1, hnf⟩
+      change OmegaTermRank_lt x (.omegaNF a b gN.1) at hxlt
+      -- hxlt : OmegaTermRank_lt x (.omegaNF a b gN.1)
+      cases hxlt with
+      | zero => exact NormalOmegaTermRank_zero_acc
+      | exponent ha => exact hAlpha _ (OmegaTermRank_normal_alpha hxnormal) ha _ _  hxnormal
+      | coefficient haeq hb =>
+        subst_vars
+        exact hBeta _ (OmegaTermRank_normal_beta hxnormal) hb _ hxnormal
+      | remainder haeq hbeq hg =>
+        subst_vars
+        let g'N : NormalOmegaTermRank := ⟨_, OmegaTermRank_normal_gamma hxnormal⟩
+        have hgN : g'N <nor gN := by exact hg
+        exact ih g'N hgN hxnormal
+  exact aux ⟨g, OmegaTermRank_normal_gamma hnormal⟩ hGamma hnormal
 
 mutual
 
@@ -2999,18 +3200,10 @@ theorem NormalOmegaTermRank_all_acc
 
 end
 
-
--- Once all normal principals are accessible, all normal principal lists follow.
-
 theorem NormalPrincipalListRank_all_acc
     (ps : NormalPrincipalListRank) :
     Acc NormalPrincipalListRank_lt ps := by
   sorry
-
-
--- -------------------------------------------------------------------------------
--- 11. Well-foundedness
--- -------------------------------------------------------------------------------
 
 theorem NormalCountableOrdRank_lt_wf :
     WellFounded NormalCountableOrdRank_lt := by
@@ -3275,3 +3468,4 @@ theorem NormalOmegaTerm_zero_acc : Acc NormalOmegaTerm_lt
   rintro ⟨o, ho⟩ hlt
   change omegaTerm_lt o .zero at hlt
   cases hlt
+-/
