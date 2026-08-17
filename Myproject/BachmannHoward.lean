@@ -1650,6 +1650,321 @@ theorem coefficient_normal_of_mem {o : omegaTerm} {c : countableOrd}
       subst_vars
       simp [omegaTerm_cmplx] <;> omega
 
+
+--==================================================================================================
+def principalList_bounded_by (p : principal) (ps : List principal) : Prop :=
+  ∀ q, q ∈ ps → q ≤p p
+-- NormalPrincipalList.nil is accessible
+theorem NormalPrincipalList_nil_acc :
+        Acc NormalPrincipalList_lt ⟨[], principalList_normal.nil⟩ := by
+  apply Acc.intro
+  -- ∀ n : NPL, n <npl ⟨[], principalList_normal.nil⟩ → Acc NPL_lt n
+  rintro ⟨ps, hps⟩ hlt
+  change principalList_lt ps [] at hlt
+  cases hlt
+-- Normal Principal is accessible with respect to equality
+theorem NormalPrincipal_acc_of_eq
+        {p q : NormalPrincipal} (hp : Acc NormalPrincipal_lt p) (hpq : p=npq) :
+        Acc NormalPrincipal_lt q := by
+  apply Acc.intro -- ∀r<npq, Acc NormalPrincipal_lt r
+  intro r hrq
+  apply hp.inv
+  exact principal_lt_eq_trans hrq (principal_eq_sym hpq)
+-- NormalPrincipalList.cons is accessible with certain conditions
+theorem NormalPrincipalList_cons_acc (p : NormalPrincipal) (hp : Acc NormalPrincipal_lt p)
+        (hsmall : ∀ q : NormalPrincipal, q <np p →
+                  ∀ qs : NormalPrincipalList, principalList_bounded_by q.1 qs.1 →
+                  Acc NormalPrincipalList_lt qs)
+        (ps : NormalPrincipalList) (hps : Acc NormalPrincipalList_lt ps)
+        (hcons : principalList_normal (p.1 :: ps.1)) :
+        Acc NormalPrincipalList_lt ⟨p.1 :: ps.1, hcons⟩ := by
+  induction hps generalizing p with
+  | intro xs hxs ih => -- xs:any<ps, hxs:Acc NormalPrincipalList_lt xs,
+    apply Acc.intro; rintro ⟨ys, hys_normal⟩ hlt
+    cases ys with
+    | nil => exact NormalPrincipalList_nil_acc
+    | cons q qs =>
+      change principalList_lt (q :: qs) (p.1 :: xs.1) at hlt
+      cases hlt with
+      | head hqp =>
+        let qN : NormalPrincipal :=
+            ⟨q, NormalPrincipalList_normalHead hys_normal⟩
+        apply hsmall qN hqp ⟨q :: qs, hys_normal⟩
+        intro r hr
+        simp only [List.mem_cons] at hr
+        rcases hr with rfl | hr
+        · exact Or.inr (principal_eq_refl r)
+        · exact principalList_normal_tail_bounded hys_normal r hr
+      | tail heq htail =>
+        let qN : NormalPrincipal :=
+            ⟨q, NormalPrincipalList_normalHead hys_normal⟩
+        let qsN : NormalPrincipalList :=
+            ⟨qs, NormalPrincipalList_normalTail hys_normal⟩
+        have htailN : NormalPrincipalList_lt qsN xs := htail
+        have hqAcc : Acc NormalPrincipal_lt qN := by
+          apply NormalPrincipal_acc_of_eq hp
+          exact principal_eq_sym heq
+        have hsmallQ : ∀ r : NormalPrincipal, r <np qN →
+                       ∀ rs : NormalPrincipalList,
+                       principalList_bounded_by r.1 rs.1 →
+                       Acc NormalPrincipalList_lt rs := by
+          intro r hr rs hrs
+          apply hsmall r
+          · exact principal_lt_eq_trans hr heq
+          · exact hrs
+        exact ih qsN htailN
+                qN
+                hqAcc
+                hsmallQ
+                hys_normal
+-- If a NormalPrincipalList ps is bounded above by an accessible NormalPrincipal p,
+-- then ps is accessible
+theorem NormalPrincipalList_acc_of_bound_acc (p : NormalPrincipal) (hp : Acc NormalPrincipal_lt p)
+    (ps : NormalPrincipalList) (hbound : principalList_bounded_by p.1 ps.1) :
+    Acc NormalPrincipalList_lt ps := by
+  revert ps -- Goal is ∀ps:NormalPrincipalList, principalList_bounded_by p.1 ps.1 →
+            -- Acc NormalPrincipalList_lt ps
+  induction hp with
+  | intro p hpred ih => -- hpred:∀q<p, Acc NormalPrincipal_lt q
+                        -- ih : ∀q,q<p → ∀ps, principalList_bounded_by p.1 ps.1
+                        --      → Acc NormalPrincipalList_lt ps
+    rintro ⟨ps, hps⟩ hbound -- Goal: Acc NormalPrincipalList_lt ⟨ps, hps⟩
+    have proveList : ∀xs : List principal, ∀hxs : principalList_normal xs,
+                     principalList_bounded_by p.1 xs
+                     → Acc NormalPrincipalList_lt ⟨xs, hxs⟩ := by
+      intro xs
+      induction xs with
+      | nil => intro hxs hbound; exact NormalPrincipalList_nil_acc
+      -- ih : ∀hqs : principalList_normal qs, principalList_bounded_by p.1 qs →
+      --      Acc NormalPrincipalList_lt ⟨qs, hqs⟩
+      | cons q qs ihTail =>
+        intro hnormal hbound -- hnormal:principalList_normal (q :: qs),
+                             -- hbound:principalList_bounded_by p.1 (q :: qs)
+        have hq_normal : principal_normal q := NormalPrincipalList_normalHead hnormal
+        have hqs_normal : principalList_normal qs := NormalPrincipalList_normalTail hnormal
+        let qN : NormalPrincipal := ⟨q, hq_normal⟩
+        let qsN : NormalPrincipalList := ⟨qs, hqs_normal⟩
+        have htailBound : principalList_bounded_by p.1 qs := by
+          intro r hr
+          exact hbound r (List.mem_cons_of_mem q hr)
+        have htailAcc : Acc NormalPrincipalList_lt qsN :=
+          ihTail hqs_normal htailBound
+        have hqle : q ≤p p.1 :=
+          hbound q List.mem_cons_self
+        rcases hqle with hqp | hqeqp
+        · have hqAcc : Acc NormalPrincipal_lt qN :=
+               hpred qN hqp
+          have hsmallQ :
+                  ∀ r : NormalPrincipal, r <np qN →
+                    ∀ rs : NormalPrincipalList,
+                      principalList_bounded_by r.1 rs.1 →
+                      Acc NormalPrincipalList_lt rs := by
+                intro r hr rs hrs
+                apply ih r
+                · exact principal_lt_trans hr hqp
+                · exact hrs
+          exact NormalPrincipalList_cons_acc
+                qN
+                hqAcc
+                hsmallQ
+                qsN
+                htailAcc
+                hnormal
+        · have hpAcc : Acc NormalPrincipal_lt p :=
+            Acc.intro p hpred
+          have hqAcc : Acc NormalPrincipal_lt qN := by
+            apply NormalPrincipal_acc_of_eq hpAcc
+            exact principal_eq_sym hqeqp
+          have hsmallQ :
+              ∀ r : NormalPrincipal, r <np qN →
+                ∀ rs : NormalPrincipalList,
+                  principalList_bounded_by r.1 rs.1 →
+                  Acc NormalPrincipalList_lt rs := by
+            intro r hr rs hrs
+            apply ih r
+            · exact principal_lt_eq_trans hr hqeqp
+            · exact hrs
+          exact NormalPrincipalList_cons_acc
+            qN
+            hqAcc
+            hsmallQ
+            qsN
+            htailAcc
+            hnormal
+    exact proveList ps hps hbound
+-- NormalPrincipalList is accessible
+theorem NormalPrincipalList_acc_of_lt {pl1 pl2 : NormalPrincipalList}
+        (h1 : Acc NormalPrincipalList_lt pl1) (h21 : NormalPrincipalList_lt pl2 pl1) :
+        Acc NormalPrincipalList_lt pl2 :=
+  h1.inv h21
+/- If the head of a NormalPrincipalList is accessible, then the whole NormalPrincipalList
+   is accessible -/
+theorem NormalPrincipalList_acc {p : principal} {ps : List principal}
+    (hnormal : principalList_normal (p :: ps))
+    (hp :
+      Acc NormalPrincipal_lt
+        ⟨p, NormalPrincipalList_normalHead hnormal⟩) :
+    Acc NormalPrincipalList_lt ⟨p :: ps, hnormal⟩ := by
+  let pnormal : NormalPrincipal :=
+    ⟨p, NormalPrincipalList_normalHead hnormal⟩
+  apply NormalPrincipalList_acc_of_bound_acc
+    pnormal hp ⟨p :: ps, hnormal⟩
+  intro q hq
+  simp only [List.mem_cons] at hq
+  rcases hq with hqp | hq
+  · subst q
+    exact Or.inr (principal_eq_refl p)
+  · exact principalList_normal_tail_bounded hnormal q hq
+/- If a NormalPrincipalList is accessible, then the corresponding NormalCountableOrd is
+   accessible -/
+theorem NormalCountableOrd_acc_of_list_acc
+    {ps : NormalPrincipalList}
+    (hps : Acc NormalPrincipalList_lt ps) :
+    Acc NormalCountableOrd_lt
+      ⟨countableOrd.sum ps.1,
+       countableOrd_normal.sum ps.2⟩ := by
+  induction hps with
+  | intro ps hpred ih =>
+      apply Acc.intro
+      rintro ⟨a, ha⟩ hlt
+      cases a with
+      | sum qs =>
+          cases ha with
+          | sum hqsNormal =>
+              cases hlt with
+              | sum hqsLt =>
+                  exact ih ⟨qs, hqsNormal⟩ hqsLt
+-- If some NormalCountableOrd a is accesible and b < a, then b is accessible
+theorem NormalCountableOrd_acc_of_lt {a b : NormalCountableOrd}
+        (ha : Acc NormalCountableOrd_lt a) (hba : b <nc a) :
+        Acc NormalCountableOrd_lt b :=
+  ha.inv hba
+-- If NormalPrincipal_lt relation is well-founded, then normalPrincipalList is accessible
+theorem NormalPrincipalList_all_acc_of_principal_wf
+    (hP : WellFounded NormalPrincipal_lt)
+    (ps : NormalPrincipalList) :
+    Acc NormalPrincipalList_lt ps := by
+  rcases ps with ⟨ps, hps⟩
+  cases ps with
+  | nil => exact NormalPrincipalList_nil_acc
+  | cons p ps =>
+    have hp : Acc NormalPrincipal_lt ⟨p, NormalPrincipalList_normalHead hps⟩ := by
+      exact hP.apply ⟨p, NormalPrincipalList_normalHead hps⟩
+    exact NormalPrincipalList_acc hps hp
+-- If NormalPrincipal_lt relation is well-founded, then NormalCountableOrd is accessible
+theorem NormalCountableOrd_all_acc_of_principal_wf
+    (hP : WellFounded NormalPrincipal_lt)
+    (a : NormalCountableOrd) :
+    Acc NormalCountableOrd_lt a := by
+  rcases a with ⟨a, ha⟩
+  cases a with
+  | sum ps =>
+      cases ha with
+      | sum hps =>
+          let psN : NormalPrincipalList := ⟨ps, hps⟩
+          have hpsAcc : Acc NormalPrincipalList_lt psN :=
+            NormalPrincipalList_all_acc_of_principal_wf hP psN
+          exact NormalCountableOrd_acc_of_list_acc hpsAcc
+-- If NormalPrincipal_lt relation is well-founded, then NormalCountableOrd_lt relation is
+-- well-founded
+theorem NormalCountableOrd_lt_wf_of_principal_wf
+    (hP : WellFounded NormalPrincipal_lt) :
+    WellFounded NormalCountableOrd_lt := by
+  constructor
+  intro a
+  exact NormalCountableOrd_all_acc_of_principal_wf hP a
+/-
+    1. Tree
+        ↓
+    2. NormalPrincipal_lt is well-founded
+        ↓  (NormalPrincipalList_all_acc_of_principal_wf)
+    3. NormalPrincipalList_lt is well-founded
+        ↓  (NormalCountableOrd_all_acc_of_principal_wf)
+    4. NormalCountableOrd_lt is well-founded
+-/
+--========================================================================================
+-- Gap tree (Two-labelled trees with the strong gap condition)
+--========================================================================================
+/- We employ the proof method introduced by Anton Freund in https://arxiv.org/abs/2105.09915.
+   · Definition
+   Given an arbitrary partial order X and natural number N, he denotes T_N(X) as finite rooted
+   trees. Internal nodes carry labels 0,⋯,N−1. He writes nodes as n ⋆ [t₀, t₁, ... t_{k-1}] where
+   the brakets are finite "multisets." Multiset is multiset is a finite collection with
+   multiplicity, equivalently a finite sequence modulo reordering. So, [A, B] = [B, A].
+   · Comparison
+   Suppose σ = [s₀, s₁, ..., s_{k-1}] and τ = [t₀, t₁, ..., t_{m-1}]. Given some relation ≤ between
+   trees, he defines σ ≤^M τ to mean that there is an injection f : {0, ..., k-1} → {0, ..., m-1}
+   such that s_i ≤ t_{f(i)} for every i < k. Freund uses T₂(∅) for the case of BH ordinals. There
+   are two possibilities Freund notes: given s = m ⋆ σ and t = n ⋆ τ
+   (i) m = n and σ ≤^M τ
+   So, if we have σ = [A, B, C] and τ = [W, X, Y, Z], source branches can be injectively distributed
+   among target branches. So, for example, A ↦ Y, B ↦ W, C ↦ Z
+   (ii) m < n
+   Denoting t = n ⋆ [t₀, t₁, ..., t_{m-1}], s ≤ t if s ≤ tᵢ for some i provided r(s) ≤ n where r(s)
+   denotes the label at the root of s. So, if we have have t = n ⋆ [A, B, C], the whole s is in B.
+   He calls this the "strong gap condition".
+
+-/
+--========================================================================================
+-- Definition
+
+-- The two labels 0 and 1 used in T₂(∅)
+abbrev GapLabel := Fin 2
+/- A finite rooted tree whose nodes are labelled by 0 or 1. The List is only a concrete storage
+   representation of the finite collection of children. The embedding relation below will NOT
+   depend on their left-to-right positions. -/
+inductive GapTree where
+  | node : GapLabel → List GapTree → GapTree
+namespace GapTree
+-- Retrieve root node from GapTree
+def rootLabel : GapTree → GapLabel
+  | .node n _ => n
+-- Retrieve the immediate subtree of GapTree
+def children : GapTree → List GapTree
+  | .node _ ts => ts
+
+@[simp]
+theorem rootLabel_node (n : GapLabel) (ts : List GapTree) :
+        rootLabel (.node n ts) = n := rfl
+@[simp]
+theorem children_node (n : GapLabel) (ts : List GapTree) :
+        children (.node n ts) = ts := rfl
+end GapTree
+
+--========================================================================================
+-- Embedding
+
+mutual
+-- GapTreeEmbeds s t to mean s embeds into t with the "strong gap condition"
+inductive GapTreeEmbeds : GapTree → GapTree → Prop where
+  | root {n : GapLabel} {ss ts : List GapTree} (h : GapForestEmbeds ss ts) :
+    GapTreeEmbeds (.node n ss) (.node n ts)
+  | descend {s t : GapTree} {n : GapLabel} {before after : List GapTree}
+            (hlabel : GapTree.rootLabel s ≤ n) (h : GapTreeEmbeds s t) :
+    GapTreeEmbeds s (.node n (before ++ t :: after))
+-- GapForestEmbeds ss ts means all trees in ss can be matched injectively with distinct trees in ts
+inductive GapForestEmbeds : List GapTree → List GapTree → Prop where
+  | nil {ts : List GapTree} : GapForestEmbeds [] ts
+  | cons {s t : GapTree} {ss before after : List GapTree} (hst : GapTreeEmbeds s t)
+         (hrest : GapForestEmbeds ss (before ++ after)) :
+         GapForestEmbeds (s :: ss) (before ++ (t :: after))
+end
+
+
+--========================================================================================
+-- Some Notes
+--========================================================================================
+/- When using existing complexity measurements such as trees and paths, it does not fully capture
+   the detailed complexity of our notion. This leads to a circular argument and we cannot prove the
+   desceding property needed to show well-foundedness. We look at Ferna ndez-Duque and Weiermann's
+   paper for insight and attempt to bring in more mathematical objects needed.
+-/
+
+
+
+
+
+/-
 --========================================================================================
 -- Some Notes
 --========================================================================================
@@ -1845,12 +2160,102 @@ theorem BH_C_nonempty (ξ : Ordinal) : (BH_C ξ).Nonempty := by
       exact List.mem_cons_self
     exact ⟨ξ / BH_Omega ^ Ordinal.log BH_Omega ξ, BH_C_of_CNF hcnf⟩
 
--- The max coefficient is less than Ω
+-- The max coefficient is less or equal to than Ω
 theorem BH_star_le_Omega (ξ : Ordinal) : BH_star ξ ≤ BH_Omega := by
   unfold BH_star
   apply csSup_le (BH_C_nonempty ξ)
   intro c hc
   exact le_of_lt (BH_C_lt_Omega hc)
+
+/- If d ∈ C(ξ), then
+      (1) ξ = 0 and d = 0,
+      (2) there exists e such that ξ = Ω^{e}d,
+      (3) there exist e and c such that ξ = Ω^{e}c, e < ξ, and d ∈ C(e) -/
+theorem BHCoeff_reduce {ξ d : Ordinal} (h : BHCoeff ξ d) :
+        (ξ = 0 ∧ d = 0) ∨ (∃ e, (e, d) ∈ Ordinal.CNF BH_Omega ξ) ∨
+        (∃ e c, (e, c) ∈ Ordinal.CNF BH_Omega ξ ∧ e < ξ ∧ BHCoeff e d) := by
+  induction h with
+  | zero => exact Or.inl ⟨rfl, rfl⟩
+  -- {ξ e c : Ordinal} (hcnf : (e, c) ∈ Ordinal.CNF BH_Omega ξ)
+  | @coefficient ξ e c hcnf => exact Or.inr (Or.inl ⟨e, hcnf⟩)
+  -- {ξ e c d : Ordinal} (hpair : (e, c) ∈ Ordinal.CNF BH_Omega ξ) (hd : BHCoeff e d)
+  | @exponent ξ e c d hpair hd ih =>
+    have he_le : e ≤ ξ := by
+      exact le_trans (Ordinal.CNF.fst_le_log hpair) (Ordinal.log_le_self BH_Omega ξ)
+    rcases lt_or_eq_of_le he_le with he_lt | he_eq
+    · exact Or.inr (Or.inr ⟨e, c, hpair, he_lt, hd⟩)
+    · subst e; exact ih
+
+-- The coefficient set is finite
+theorem BH_C_finite (ξ : Ordinal) : (BH_C ξ).Finite := by
+  classical
+  refine WellFoundedLT.induction (motive := fun ξ => (BH_C ξ).Finite) ξ ?_
+  intro ξ ih
+  let pairs : Finset (Ordinal × Ordinal) := (Ordinal.CNF BH_Omega ξ).toFinset
+  let exps : Finset Ordinal := pairs.image Prod.fst
+  let direct : Finset Ordinal := pairs.image Prod.snd
+  let inherited : Finset Ordinal :=
+    exps.biUnion fun e =>
+      if he : e < ξ then
+        (ih e he).toFinset
+      else
+        ∅
+  let cover : Finset Ordinal := insert 0 (direct ∪ inherited)
+  apply cover.finite_toSet.subset
+  intro d hd
+  change BHCoeff ξ d at hd
+  rcases BHCoeff_reduce hd with hzero | hdirect | hinherited
+  · rcases hzero with ⟨_, rfl⟩; simp [cover]
+  · rcases hdirect with ⟨e, hpair⟩
+    have hpair' : (e, d) ∈ pairs := by simpa [pairs] using hpair
+    have hd_direct : d ∈ direct := by
+      refine Finset.mem_image.mpr ?_
+      exact ⟨(e, d), hpair', rfl⟩
+    simp [cover, hd_direct]
+  · rcases hinherited with ⟨e, c, hpair, he, hed⟩
+    have hpair' : (e, c) ∈ pairs := by
+      simpa [pairs] using hpair
+    have he_exps : e ∈ exps := by
+      refine Finset.mem_image.mpr ?_
+      exact ⟨(e, c), hpair', rfl⟩
+    have hedC : d ∈ BH_C e := hed
+    have hd_inherited : d ∈ inherited := by
+      simp only [inherited, Finset.mem_biUnion]
+      refine ⟨e, he_exps, ?_⟩
+      simp [he, hedC]
+    simp [cover, hd_inherited]
+
+-- The max coefficient is less than Ω
+theorem BH_star_lt_Omega (ξ : Ordinal) : BH_star ξ < BH_Omega := by
+  unfold BH_star
+  rw [Set.Finite.csSup_lt_iff (BH_C_finite ξ) (BH_C_nonempty ξ)]
+  intro c hc
+  exact BH_C_lt_Omega hc
+
+
+--========================================================================================
+-- Theta condition
+/- The paper we are looking at defines theta(ξ) := Θ_{P}(ξ) as the least principal ordinal θ
+   satisfying ξ^* < θ < Ω and ∀ ζ < ξ, ζ^* < θ → theta (ζ) < θ.
+-/
+
+/- Assuming f defines the collapsed values of ordinals under ξ, θ is an acceptable
+   candidate for the collapsed value of ξ
+   (θ ∈ P) ∧ (ξ^* < θ) ∧ (θ < Ω) ∧ (∀ ζ < ξ)[ζ^* < θ → f(ζ) < θ] -/
+def BHThetaCond (f : Ordinal → Ordinal) (ξ θ : Ordinal) : Prop :=
+  θ ∈ BN_P ∧ BH_star ξ < θ ∧ θ < BH_Omega ∧ ∀ ζ, ζ < ξ → BH_star ζ < θ → f ζ < θ
+
+/- Set of all ordinals θ that are valid candidates for the collapse value of ξ, assuming
+   f gives the already-defined earlier collapse values -/
+def BHThetaCandidates (f : Ordinal → Ordinal) (ξ : Ordinal) : Set Ordinal :=
+  {θ | BHThetaCond f ξ θ}
+
+
+
+-/
+
+
+
 
 /-
 --========================================================================================
@@ -1864,8 +2269,6 @@ theorem BH_star_le_Omega (ξ : Ordinal) : BH_star ξ ≤ BH_Omega := by
     5. Rank of Normal Objects
     6. Packaging Normal Objects with Normal Rank
     7. Some Properties
-
-
 -/
 /-
 With our current measure of complexity, it merely measures the tree of the given data. We encounter
