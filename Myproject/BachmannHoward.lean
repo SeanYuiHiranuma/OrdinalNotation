@@ -1950,6 +1950,732 @@ inductive GapForestEmbeds : List GapTree → List GapTree → Prop where
          GapForestEmbeds (s :: ss) (before ++ (t :: after))
 end
 
+-- Reflexitivity
+
+mutual
+theorem GapTreeEmbeds_refl (t : GapTree) : GapTreeEmbeds t t := by
+  cases t with
+  | node n list =>
+    apply GapTreeEmbeds.root --newgoal: GapForestEmbeds list list
+    exact GapForestEmbeds_refl list
+theorem GapForestEmbeds_refl (ts : List GapTree) : GapForestEmbeds ts ts := by
+  cases ts with
+  | nil => exact GapForestEmbeds.nil
+  | cons t ts =>
+    have ht : GapTreeEmbeds t t := GapTreeEmbeds_refl t
+    have hts : GapForestEmbeds ts ts := GapForestEmbeds_refl ts
+    simpa using (GapForestEmbeds.cons (s := t) (t := t) (ss := ts) (before := [])
+                                      (after := ts) ht hts)
+end
+
+-- Append
+
+/- Suppose a target node contains s as one of its children and (rootLabel of s) ≤ n, then
+   s should embed into that parent node. -/
+theorem GapTreeEmbeds_into_parent {s : GapTree} {n : GapLabel} {before after : List GapTree}
+        (hlabel : GapTree.rootLabel s ≤ n) :
+        GapTreeEmbeds s (.node n (before ++ (s :: after))) := by
+  apply GapTreeEmbeds.descend
+  · exact hlabel
+  · exact GapTreeEmbeds_refl s
+-- σ ≤M τ → σ ≤M [u] ∪ τ
+theorem GapForestEmbeds_weaken_cons {ss ts : List GapTree} (h : GapForestEmbeds ss ts)
+        (u : GapTree) : GapForestEmbeds ss (u :: ts) := by
+  cases h with
+  | nil => exact GapForestEmbeds.nil
+  | @cons s t ss before after hst hrest =>
+      apply GapForestEmbeds.cons (s := s) (t := t) (ss := ss) (before := u :: before)
+                                 (after := after)
+      · exact hst
+      · simpa using GapForestEmbeds_weaken_cons hrest u
+-- σ ≤M τ → σ ≤M us ∪ τ
+theorem GapForestEmbeds_weaken_prefix {ss ts : List GapTree} (h : GapForestEmbeds ss ts)
+        (us : List GapTree) : GapForestEmbeds ss (us ++ ts) := by
+  induction us with
+  | nil => simpa using h
+  | cons u us ih => simpa using GapForestEmbeds_weaken_cons ih u
+-- σ ≤M τ → σ ≤M τ ∪ us
+theorem GapForestEmbeds_weaken_suffix {ss ts : List GapTree} (h : GapForestEmbeds ss ts)
+        (us : List GapTree) : GapForestEmbeds ss (ts ++ us) := by
+  cases h with
+  | nil => exact GapForestEmbeds.nil
+  | @cons s t ss before after hst hrest =>
+    have hrest' : GapForestEmbeds ss (before ++ (after ++ us)) := by
+      simpa [List.append_assoc] using GapForestEmbeds_weaken_suffix hrest us
+    have hcons : GapForestEmbeds (s :: ss) (before ++ (t :: (after ++ us))) := by
+        exact GapForestEmbeds.cons (s := s) (t := t) (ss := ss) (before := before)
+              (after := after ++ us) hst hrest'
+    simpa [List.append_assoc] using hcons
+/- If ss embeds into ts, then it still embeds after adding arbitrary unused target children
+   before and after ts. σ ≤M τ → σ ≤M (ρ + τ + η)-/
+theorem GapForestEmbeds_weaken {ss ts : List GapTree} (h : GapForestEmbeds ss ts)
+        (before after : List GapTree) : GapForestEmbeds ss (before ++ ts ++ after) := by
+  have hprefix : GapForestEmbeds ss (before ++ ts) := GapForestEmbeds_weaken_prefix h before
+  exact GapForestEmbeds_weaken_suffix hprefix after
+
+-- Embedding properties
+
+-- If s embeds into t, then the root label of s is ≤ the root label of t
+theorem GapTreeEmbeds_rootLabel_le {s t : GapTree} (h : GapTreeEmbeds s t) :
+        GapTree.rootLabel s ≤ GapTree.rootLabel t := by
+  cases h with
+  | root h => exact le_rfl
+  | descend hlabel h => exact hlabel
+/- if a source tree occurs in a forest that embeds into another forest,
+   then it embeds into some tree in the target forest. -/
+theorem GapForestEmbeds_exists_of_mem {ss ts : List GapTree} (h : GapForestEmbeds ss ts)
+        {s : GapTree} (hs : s ∈ ss) : ∃ t, t ∈ ts ∧ GapTreeEmbeds s t := by
+  cases h with
+  | nil => simp at hs
+  | @cons s₀ t₀ ss before after hst hrest =>
+      simp only [List.mem_cons] at hs
+      rcases hs with rfl | hs
+      · refine ⟨t₀, ?_, hst⟩
+        simp
+      · obtain ⟨t, ht, hst'⟩ :=
+          GapForestEmbeds_exists_of_mem hrest hs
+        refine ⟨t, ?_, hst'⟩
+        simp only [List.mem_append, List.mem_cons] at ht ⊢
+        rcases ht with ht | ht
+        · exact Or.inl ht
+        · exact Or.inr (Or.inr ht)
+/- If s :: ss is embedded in ts, then there exist t (child of ts), before and after
+   such that s ∈ t, ts = before ∪ t ∪ after, and ss ∈ before ∪ after -/
+theorem GapForestEmbeds_head {s : GapTree} {ss ts : List GapTree}
+        (h : GapForestEmbeds (s :: ss) ts) :
+        ∃ t before after, ts = before ++ (t :: after) ∧ GapTreeEmbeds s t ∧
+        GapForestEmbeds ss (before ++ after) := by
+  cases h with
+  | @cons s t ss before after hst hrest =>
+      exact ⟨t, before, after, rfl, hst, hrest⟩
+
+--========================================================================================
+-- Two-labeled Trees
+
+namespace GapTree
+def label0 : GapLabel := ⟨0, by omega⟩
+def label1 : GapLabel := ⟨1, by omega⟩
+def node0 (ts : List GapTree) : GapTree := .node label0 ts
+def node1 (ts : List GapTree) : GapTree := .node label1 ts
+/- Freund uses the following constructor to represent collapsed terms
+   f(ϑα)=0⋆[1⋆[f(α)]]. -/
+/-                  0
+                    |
+                    1
+                    |
+                some tree                                       -/
+def collapseWrap (t : GapTree) : GapTree := node0 [node1 [t]]
+@[simp]
+theorem GapTree_rootLabel_node0 (ts : List GapTree) :
+        GapTree.rootLabel (GapTree.node0 ts) = GapTree.label0 := rfl
+@[simp]
+theorem GapTree_rootLabel_node1 (ts : List GapTree) :
+        GapTree.rootLabel (GapTree.node1 ts) = GapTree.label1 := rfl
+@[simp]
+theorem GapTree_rootLabel_collapseWrap (t : GapTree) :
+        GapTree.rootLabel (GapTree.collapseWrap t) = GapTree.label0 := rfl
+end GapTree
+
+-- E-bar function
+/- As mentioned before, Freund encodes the collapsed terms as
+   f(ϑ(α)) = [0 ⋆ [1 ⋆ f(α)]] where θ is the collapsing function. The E-bar function
+   scans a tree t and extracts the subtrees that look like encodings of collapsed ϑ-terms.
+   -/
+namespace GapTree
+mutual
+def Ebar (t : GapTree) : List GapTree :=
+  match t with
+  | .node n ts =>
+    if n = label0 ∧ ∃ u ∈ ts, rootLabel u = label1 then
+      [t]
+    else EbarForest ts
+def EbarForest (ts : List GapTree) : List GapTree :=
+  match ts with
+    | [] => []
+    | t :: ts => Ebar t ++ EbarForest ts
+end
+-- Ebar to an actual collapse wrapper returns that whole wrapper
+@[simp]
+theorem Ebar_collapseWrap (t : GapTree) : GapTree.Ebar (GapTree.collapseWrap t) =
+        [GapTree.collapseWrap t] := by
+  simp [GapTree.Ebar, GapTree.collapseWrap, GapTree.node0, GapTree.node1,
+        GapTree.rootLabel]
+end GapTree
+-- Every tree returned by Ebar has root label 0.
+mutual
+theorem Ebar_mem_rootLabel_eq_label0 {s t : GapTree} (hs : s ∈ GapTree.Ebar t) :
+        GapTree.rootLabel s = GapTree.label0 := by
+  cases t with
+  | node n ts =>
+    rw [GapTree.Ebar] at hs
+    /- given (t=.node n ts)
+       hs : s ∈ (if n = label0 ∧ ∃u ∈ ts, rootLabel u = label1 then [t] else EbarForest ts) -/
+    split at hs
+    -- if n = label0 ∧ ∃u ∈ ts, rootLabel u = label1 then [t]
+    next h1 => simp at hs
+               subst s
+               exact h1.1
+    next h2 => exact EbarForest_mem_rootLabel_eq_label0 hs
+theorem EbarForest_mem_rootLabel_eq_label0 {s : GapTree} {ts : List GapTree}
+        (hs : s ∈ GapTree.EbarForest ts) :
+        GapTree.rootLabel s = GapTree.label0 := by
+  cases ts with
+  | nil => simp [GapTree.EbarForest] at hs
+  | cons t ts =>
+      rw [GapTree.EbarForest] at hs
+      simp only [List.mem_append] at hs
+      rcases hs with hs | hs
+      · exact Ebar_mem_rootLabel_eq_label0 hs
+      · exact EbarForest_mem_rootLabel_eq_label0 hs
+end
+theorem GapTree_label0_le (n : GapLabel) : GapTree.label0 ≤ n := by
+  change 0 ≤ n.val
+  omega
+-- Every Ebar piece embeds into the tree it came from
+mutual
+theorem Ebar_mem_embeds {s t : GapTree} (hs : s ∈ GapTree.Ebar t) :
+        GapTreeEmbeds s t := by
+  cases t with
+  | node n ts => rw [GapTree.Ebar] at hs
+                 split at hs -- if n = label0 ∧ ∃u ∈ ts, rootLabel u = label1 then [t]
+                 next h1 => simp at hs
+                            subst s
+                            exact GapTreeEmbeds_refl (.node n ts)
+                 next h2 => obtain ⟨u, before, after, hts, hsu⟩ :=
+                              EbarForest_mem_exists_embeds hs
+                            rw [hts]
+                            apply GapTreeEmbeds.descend
+                            · calc GapTree.rootLabel s = GapTree.label0 :=
+                                    EbarForest_mem_rootLabel_eq_label0 hs
+                                  _ ≤ n := GapTree_label0_le n
+                            · exact hsu
+theorem EbarForest_mem_exists_embeds {s : GapTree} {ts : List GapTree}
+        (hs : s ∈ GapTree.EbarForest ts) :
+        ∃ u before after, ts = before ++ (u :: after) ∧ GapTreeEmbeds s u := by
+  cases ts with
+  | nil => simp [GapTree.EbarForest] at hs
+  | cons t ts => rw [GapTree.EbarForest] at hs
+                 simp only [List.mem_append] at hs
+                 rcases hs with hTree | hForest
+                 · refine ⟨t, [], ts, ?_, Ebar_mem_embeds hTree⟩; simp
+                 · obtain ⟨u, before, after, hts, hsu⟩ :=
+                    EbarForest_mem_exists_embeds hForest
+                   refine ⟨u, t :: before, after, ?_, hsu⟩; simp [hts]
+end
+-- 0 ≤ n ≤ 1
+theorem GapTree_le_label1 (n : GapLabel) : n ≤ GapTree.label1 := by
+  change n.val ≤ 1; omega
+-- if t ∈ ts and s ∈ Ebar(t) then s ∈ EBar_forest​(ts).
+theorem Ebar_mem_EbarForest_of_mem {s t : GapTree} {ts : List GapTree}
+        (ht : t ∈ ts) (hs : s ∈ GapTree.Ebar t) : s ∈ GapTree.EbarForest ts := by
+  induction ts with
+  | nil =>
+      simp at ht
+  | cons u us ih =>
+      rw [GapTree.EbarForest]
+      simp only [List.mem_append]
+      simp only [List.mem_cons] at ht
+      rcases ht with rfl | ht
+      · exact Or.inl hs
+      · exact Or.inr (ih ht)
+/- If a collapse-shaped tree embeds into t, then it already embeds into some
+   critical piece returned (Freund's naming of the first appearence of the callapse-
+   shaped tree in a given tree) by Ebar t. -/
+theorem collapseWrap_embeds_Ebar {s t : GapTree} (h : GapTreeEmbeds (GapTree.collapseWrap s) t) :
+        ∃ u, u ∈ GapTree.Ebar t ∧ GapTreeEmbeds (GapTree.collapseWrap s) u := by
+  -- node0 [node1 [t]]
+  unfold GapTree.collapseWrap GapTree.node0 GapTree.node1 at h
+  cases h with
+  | @root n ss ts hforest =>
+    have hmem : (.node GapTree.label1 [s] : GapTree) ∈ [(.node GapTree.label1 [s] : GapTree)] := by
+      simp
+    obtain ⟨u, hu, h1u⟩ := GapForestEmbeds_exists_of_mem hforest hmem
+    have hLower : GapTree.label1 ≤ GapTree.rootLabel u := by
+      simpa using GapTreeEmbeds_rootLabel_le h1u
+    have huLabel : GapTree.rootLabel u = GapTree.label1 := by
+      apply le_antisymm
+      · exact GapTree_le_label1 _
+      · exact hLower
+    refine ⟨.node GapTree.label0 ts, ?_, ?_⟩
+    · have hcond :
+          GapTree.label0 = GapTree.label0 ∧
+            ∃ v ∈ ts, GapTree.rootLabel v = GapTree.label1 := by
+          constructor
+          · rfl
+          · exact ⟨u, hu, huLabel⟩
+      rw [GapTree.Ebar, if_pos hcond]
+      simp
+    · simpa [GapTree.collapseWrap, GapTree.node0, GapTree.node1] using GapTreeEmbeds.root hforest
+  | @descend source t₀ n before after hlabel hsub =>
+      obtain ⟨u, huEbar, huEmbed⟩ := collapseWrap_embeds_Ebar hsub
+      by_cases hcrit : n = GapTree.label0 ∧ ∃ v ∈ before ++ (t₀ :: after),
+                       GapTree.rootLabel v = GapTree.label1
+      · refine ⟨.node n (before ++ (t₀ :: after)), ?_, ?_⟩
+        · change
+            (.node n (before ++ (t₀ :: after)) : GapTree) ∈
+            (if n = GapTree.label0 ∧ ∃ v ∈ before ++ (t₀ :: after),
+                GapTree.rootLabel v = GapTree.label1
+             then [.node n (before ++ (t₀ :: after))]
+             else GapTree.EbarForest (before ++ (t₀ :: after)))
+          rw [if_pos hcrit]; simp
+        · exact GapTreeEmbeds.descend hlabel hsub
+      · refine ⟨u, ?_, huEmbed⟩
+        change
+          u ∈ (if n = GapTree.label0 ∧ ∃ v ∈ before ++ (t₀ :: after),
+                  GapTree.rootLabel v = GapTree.label1
+               then [.node n (before ++ (t₀ :: after))]
+               else GapTree.EbarForest (before ++ (t₀ :: after)))
+        rw [if_neg hcrit]
+        apply Ebar_mem_EbarForest_of_mem
+          (t := t₀)
+          (ts := before ++ (t₀ :: after))
+        · simp
+        · exact huEbar
+termination_by t
+decreasing_by
+  have hmem : t₀ ∈ before ++ (t₀ :: after) := by simp
+  have hsize := List.sizeOf_lt_of_mem hmem
+  simp_all
+  omega
+
+--========================================================================================
+-- Encoding
+--========================================================================================
+/- We now encode our ordinal notations into this gap tree data type. But ours differ from
+   Fruend's data type. We follow the following outline:
+   1. Formalize Freunds term system as a small immediate datatype.
+   2. Define its normality/order
+   3. Define f : FreundTerm → GapTree
+   4. Prove EBar(f(a)) ≃ E(a)
+   5. Use collapseWrap_embeds_Ebar
+   6. Prove f_order_reflecting
+   7. Prove FreundTerm order well-founded
+   8. Bridge our ψ/ΩNF notation to FreundTerm
+   9. WellFounded NormalPrincipal_lt
+   10. WellFounded NormalCountableOrd_lt
+   * We mostly just follow Fruend's notations   -/
+/- FreundTerm.Omega ↦ Ω
+    f(Ω) = 1 ⋆ []
+   FruendTerm.theta a ↦ ϑ(a)
+    f(ϑa) = 0 ⋆ [1 ⋆ [f(a)]]
+   FreundTerm.cnf [a₀, a₁, ..., a_{n-1}] ↦ ω^a₀ + ω^a₁ + ... + ω^{a_{n-1}}
+    f(⟨a₀, a₁, ..., a_{n-1}⟩) = i ⋆ [f(a₀), ..., f(a_{n-1})] -/
+inductive FreundTerm where
+  | Omega : FreundTerm
+  | theta : FreundTerm → FreundTerm
+  | cnf   : List FreundTerm → FreundTerm
+-- E Map (Critical-Term Function)
+namespace FreundTerm
+mutual
+def E : FreundTerm → List FreundTerm
+  | .Omega => []                                -- E(Ω) = []
+  | .theta a => [.theta a]                      -- E(ϑ a) = [ϑ a]
+  | .cnf as => EList as                         -- E(cnf [a₀, a₁, ..., a_{n-1}]) =
+                                                --    E(a₀) ++ ... ++ E(a_{n-1})
+def EList : List FreundTerm → List FreundTerm
+  | [] => []
+  | a :: as => E a ++ EList as
+end
+end FreundTerm
+
+-- Comparison
+
+mutual
+inductive FreundTerm_lt : FreundTerm → FreundTerm → Prop where
+  -- Ω < cnf(b :: bs) when Ω < b
+  | Omega_cnf_lt {b : FreundTerm} {bs : List FreundTerm}
+                (h : FreundTerm_lt .Omega b) :
+      FreundTerm_lt .Omega (.cnf (b :: bs))
+  -- Ω < cnf(Ω :: bs)
+  | Omega_cnf_eq {bs : List FreundTerm} : FreundTerm_lt .Omega (.cnf (.Omega :: bs))
+  -- θα < Ω
+  | theta_Omega {a : FreundTerm} : FreundTerm_lt (.theta a) .Omega
+  -- θα < cnf(b :: bs) when θα < b
+  | theta_cnf_lt {a b : FreundTerm} {bs : List FreundTerm}
+                 (h : FreundTerm_lt (.theta a) b) :
+      FreundTerm_lt (.theta a) (.cnf (b :: bs))
+  -- θα < cnf(θα :: bs)
+  | theta_cnf_eq {a : FreundTerm} {bs : List FreundTerm} :
+      FreundTerm_lt (.theta a) (.cnf (.theta a :: bs))
+  -- α < β and every critical term of α is below θβ
+  | theta_theta_forward {a b : FreundTerm} (hab : FreundTerm_lt a b)
+                        (hE : ∀ g, g ∈ FreundTerm.E a → FreundTerm_lt g (.theta b)) :
+      FreundTerm_lt (.theta a) (.theta b)
+  -- θα < θβ because some g ∈ E(β) strictly dominates θα
+  | theta_theta_support_lt {a b g : FreundTerm} (hg : g ∈ FreundTerm.E b)
+                           (h : FreundTerm_lt (.theta a) g) :
+      FreundTerm_lt (.theta a) (.theta b)
+  -- θα < θβ because θα itself occurs in E(β)
+  | theta_theta_support_eq {a b : FreundTerm} (hg : .theta a ∈ FreundTerm.E b) :
+      FreundTerm_lt (.theta a) (.theta b)
+  -- [] < Ω
+  | cnf_nil_Omega : FreundTerm_lt (.cnf []) .Omega
+  -- [] < θβ
+  | cnf_nil_theta {b : FreundTerm} : FreundTerm_lt (.cnf []) (.theta b)
+  -- cnf(a :: as) < Ω when a < Ω
+  | cnf_Omega {a : FreundTerm} {as : List FreundTerm} (h : FreundTerm_lt a .Omega) :
+      FreundTerm_lt (.cnf (a :: as)) .Omega
+  -- cnf(a :: as) < θβ when a < θβ
+  | cnf_theta {a b : FreundTerm} {as : List FreundTerm} (h : FreundTerm_lt a (.theta b)) :
+      FreundTerm_lt (.cnf (a :: as)) (.theta b)
+  -- lexicographic CNF comparison
+  | cnf_cnf {as bs : List FreundTerm} (h : FreundTermList_lt as bs) :
+      FreundTerm_lt (.cnf as) (.cnf bs)
+inductive FreundTermList_lt : List FreundTerm → List FreundTerm → Prop where
+  | nil {b : FreundTerm} {bs : List FreundTerm} :
+      FreundTermList_lt [] (b :: bs)
+  | head {a b : FreundTerm} {as bs : List FreundTerm} (h : FreundTerm_lt a b) :
+      FreundTermList_lt (a :: as) (b :: bs)
+  | tail {a : FreundTerm} {as bs : List FreundTerm} (h : FreundTermList_lt as bs) :
+      FreundTermList_lt (a :: as) (a :: bs)
+end
+-- Weak Comparison
+def FreundTerm_le (a b : FreundTerm) : Prop :=
+  FreundTerm_lt a b ∨ a = b
+infix:50 " <f " => FreundTerm_lt
+infix:50 " ≤f " => FreundTerm_le
+
+-- Normality
+/- Freund imposes two conditions for the cnf
+   1. if it has at least two entries, they must be non-increasing
+   2. if it has exactly one entry [α], α cannot be Ω nor ϑ β for some β -/
+
+def FreundSingletonOK : FreundTerm → Prop
+  | .cnf _ => True
+  | _ => False
+mutual
+inductive FreundTerm_normal : FreundTerm → Prop where
+  | Omega : FreundTerm_normal .Omega
+  | theta {a : FreundTerm} (ha : FreundTerm_normal a) : FreundTerm_normal (.theta a)
+  | cnf {as : List FreundTerm} (has : FreundTermList_normal as)
+        (hsingle : ∀ a, as = [a] → FreundSingletonOK a) :
+      FreundTerm_normal (.cnf as)
+inductive FreundTermList_normal : List FreundTerm → Prop where
+  | nil : FreundTermList_normal []
+  | single {a : FreundTerm} (ha : FreundTerm_normal a) :
+      FreundTermList_normal [a]
+  | cons {a b : FreundTerm} {rest : List FreundTerm} (ha : FreundTerm_normal a)
+         (htail : FreundTermList_normal (b :: rest))
+         (hbound : ∀ t, t ∈ (b :: rest) → t ≤f a) :
+      FreundTermList_normal (a :: b :: rest)
+end
+def NormalFreundTerm := {a : FreundTerm // FreundTerm_normal a}
+
+-- Encoding
+
+namespace FreundTerm
+/- Recall the encoding rule Freund defines. In short, for a cnf list, i = 0 if the list is empty
+   or the head is <Ω and i = 1 otherwise. -/
+noncomputable def cnfLabel (as : List FreundTerm) : GapLabel := by
+  classical
+  exact match as with
+        | [] => GapTree.label0
+        | a :: _ => if a <f .Omega then GapTree.label0
+                    else GapTree.label1
+mutual
+noncomputable def tree : FreundTerm → GapTree
+  | .Omega => GapTree.node1 []
+  -- 1 (no children)
+  | .theta a => GapTree.collapseWrap (tree a)
+  /-     0
+         |
+         1
+         |
+      tree a     -/
+  | .cnf as => .node (cnfLabel as) (treeList as)
+  /- If as = [a b c]
+              i
+            / | \
+  (tree a)(tree b)(tree c)      -/
+noncomputable def treeList : List FreundTerm → List GapTree
+  | [] => []
+  | a :: as => tree a :: treeList as
+end
+end FreundTerm
+-- Some properties
+namespace FreundTerm
+@[simp]
+theorem tree_Omega : tree .Omega = GapTree.node1 [] := by rfl
+@[simp]
+theorem tree_theta (a : FreundTerm) : tree (.theta a) = GapTree.collapseWrap (tree a) := by rfl
+@[simp]
+theorem treeList_nil : treeList [] = [] := by rfl
+@[simp]
+theorem treeList_cons (a : FreundTerm) (as : List FreundTerm) :
+        treeList (a :: as) = tree a :: treeList as := by rfl
+@[simp]
+theorem cnfLabel_nil : cnfLabel [] = GapTree.label0 := by rfl
+@[simp]
+theorem cnfLabel_cons_of_lt {a : FreundTerm} {as : List FreundTerm} (h : ¬ a <f .Omega) :
+        cnfLabel (a :: as) = GapTree.label1 := by simp [cnfLabel, h]
+-- If a < Ω, a can only have forms (1) theta x, (2) cnf [], or (3) cnf (x :: xs) where x <f Ω
+theorem tree_rootLabel_eq_label0_of_lt_Omega {a : FreundTerm} (h : a <f .Omega) :
+        GapTree.rootLabel (tree a) = GapTree.label0 := by
+  cases h with
+  | theta_Omega => simp
+  | cnf_nil_Omega => change cnfLabel [] = GapTree.label0
+                     exact cnfLabel_nil
+  | cnf_Omega hhead => simp [tree, cnfLabel, hhead]
+-- Opposite of above
+theorem not_lt_Omega_of_tree_rootLabel_eq_label1 {a : FreundTerm}
+    (hroot : GapTree.rootLabel (tree a) = GapTree.label1) : ¬ a <f .Omega := by
+  intro hlt -- a <f .Omega
+  have h0 : GapTree.rootLabel (tree a) = GapTree.label0 :=
+    tree_rootLabel_eq_label0_of_lt_Omega hlt
+  have h01 : GapTree.label0 = GapTree.label1 := by
+    exact h0.symm.trans hroot
+  have hv := congrArg Fin.val h01
+  simp [GapTree.label0, GapTree.label1] at hv
+-- All the tail components are less than head
+theorem FreundTermList_normal_tail_bounded {a : FreundTerm} {as : List FreundTerm}
+        (h : FreundTermList_normal (a :: as)) :
+        ∀ t, t ∈ as → t ≤f a := by
+  intro t ht
+  cases as with
+  | nil => simp at ht
+  | cons b rest => cases h with
+                   | cons ha htail hbound => exact hbound t ht
+-- If the list (of cnf) is normal its head is normal
+theorem FreundTermList_normal_head {a : FreundTerm} {as : List FreundTerm}
+        (h : FreundTermList_normal (a :: as)) : FreundTerm_normal a := by
+  cases as with
+  | nil => cases h with
+           | single ha => exact ha
+  | cons b bs => cases h with
+                 | cons ha htail hbound => exact ha
+-- If the list (of cnf) is normal its tail is normal
+theorem FreundTermList_normal_tail {a : FreundTerm} {as : List FreundTerm}
+        (h : FreundTermList_normal (a :: as)) : FreundTermList_normal as := by
+  cases as with
+  | nil => exact FreundTermList_normal.nil
+  | cons b bs => cases h with
+                 | cons ha htail hbound => exact htail
+-- A transparent syntax-node count used for well-founded recursion below.
+mutual
+def complexity : FreundTerm → Nat
+  | .Omega => 1
+  | .theta a => complexity a + 1
+  | .cnf as => complexityList as + 1
+def complexityList : List FreundTerm → Nat
+  | [] => 0
+  | a :: as => complexity a + complexityList as + 1
+end
+-- If a < b < Ω then a < Ω
+theorem FreundTerm_lt_Omega_trans {a b : FreundTerm} (hab : a <f b) (hbO : b <f .Omega) :
+        a <f .Omega := by
+  cases hbO with
+  | theta_Omega =>
+      cases hab with
+      | theta_theta_forward => exact FreundTerm_lt.theta_Omega
+      | theta_theta_support_lt => exact FreundTerm_lt.theta_Omega
+      | theta_theta_support_eq => exact FreundTerm_lt.theta_Omega
+      | cnf_nil_theta => exact FreundTerm_lt.cnf_nil_Omega
+      | cnf_theta h =>
+          exact FreundTerm_lt.cnf_Omega
+            (FreundTerm_lt_Omega_trans h FreundTerm_lt.theta_Omega)
+  | cnf_nil_Omega =>
+      cases hab with
+      | cnf_cnf hlist => cases hlist
+  | cnf_Omega hb =>
+      cases hab with
+      | Omega_cnf_lt h =>
+          have hOO : (.Omega : FreundTerm) <f .Omega :=
+            FreundTerm_lt_Omega_trans h hb
+          cases hOO
+      | Omega_cnf_eq => cases hb
+      | theta_cnf_lt => exact FreundTerm_lt.theta_Omega
+      | theta_cnf_eq => exact FreundTerm_lt.theta_Omega
+      | cnf_cnf hlist =>
+          cases hlist with
+          | nil => exact FreundTerm_lt.cnf_nil_Omega
+          | head h =>
+              exact FreundTerm_lt.cnf_Omega
+                (FreundTerm_lt_Omega_trans h hb)
+          | tail => exact FreundTerm_lt.cnf_Omega hb
+termination_by FreundTerm.complexity a + FreundTerm.complexity b
+decreasing_by
+  all_goals subst_vars
+  all_goals simp [FreundTerm.complexity, FreundTerm.complexityList]
+  all_goals omega
+-- Mixed version
+theorem FreundTerm_lt_Omega_of_le_of_lt {a b : FreundTerm} (hab : a ≤f b) (hbO : b <f .Omega) :
+        a <f .Omega := by
+  rcases hab with hab | hab
+  · exact FreundTerm_lt_Omega_trans hab hbO
+  · subst a
+    exact hbO
+-- Given a normal list a :: as, if a < Ω, then all components are also < Ω
+theorem FreundTermList_normal_tail_lt_Omega {a : FreundTerm} {as : List FreundTerm}
+        (hnormal : FreundTermList_normal (a :: as)) (haO : a <f .Omega) :
+        ∀ t, t ∈ as → t <f .Omega := by
+  intro t ht
+  have hta : t ≤f a := FreundTermList_normal_tail_bounded hnormal t ht
+  exact FreundTerm_lt_Omega_of_le_of_lt hta haO
+theorem mem_treeList_iff {u : GapTree} {as : List FreundTerm} :
+        u ∈ treeList as ↔ ∃ a ∈ as, tree a = u := by
+  induction as with
+  | nil => simp
+  -- as = a :: as
+  -- ih : ∀ bs < as, u ∈ treeList bs ↔ ∃ b ∈ bs, tree b = u
+  | cons a as ih =>
+    rw [treeList_cons]; simp only [List.mem_cons]; constructor
+    · intro hu
+      rcases hu with rfl | hu
+      · exact ⟨a, Or.inl rfl, rfl⟩
+      · obtain ⟨b, hb, hbu⟩ := ih.mp hu
+        exact ⟨b, Or.inr hb, hbu⟩
+    · rintro ⟨b, hb, rfl⟩
+      rcases hb with rfl | hb
+      · exact Or.inl rfl
+      · exact Or.inr (ih.mpr ⟨b, hb, rfl⟩)
+-- If the head of a list is <Ω, then i (the root node) is 0
+theorem treeList_rootLabel_eq_label0_of_normal_lt_Omega {a : FreundTerm} {as : List FreundTerm}
+        (hnormal : FreundTermList_normal (a :: as)) (haO : a <f .Omega) :
+        ∀ u, u ∈ treeList (a :: as) → GapTree.rootLabel u = GapTree.label0 := by
+  intro u hu
+  -- ht : t ∈ treeList (a :: as), rfl : tree t = u
+  obtain ⟨t, ht, rfl⟩ := mem_treeList_iff.mp hu
+  simp only [List.mem_cons] at ht
+  -- rfl : r = (head of treeList (a :: as)), ht : r ∈ (tail)
+  rcases ht with rfl | ht
+  · exact tree_rootLabel_eq_label0_of_lt_Omega haO
+  · have htO : t <f .Omega := FreundTermList_normal_tail_lt_Omega hnormal haO t ht
+    exact tree_rootLabel_eq_label0_of_lt_Omega htO
+-- Simply the negation as we are in the realm of N=1 (i.e., i can only be 1 or 2)
+theorem treeList_no_label1_of_normal_lt_Omega {a : FreundTerm} {as : List FreundTerm}
+        (hnormal : FreundTermList_normal (a :: as)) (haO : a <f .Omega) :
+        ¬ ∃ u ∈ treeList (a :: as), GapTree.rootLabel u = GapTree.label1 := by
+  rintro ⟨u, hu, h1⟩
+  have h0 : GapTree.rootLabel u = GapTree.label0 :=
+            treeList_rootLabel_eq_label0_of_normal_lt_Omega
+      hnormal haO u hu
+  have h01 : GapTree.label0 = GapTree.label1 := by
+    exact h0.symm.trans h1
+  have hval : (0 : Nat) = 1 := by
+    exact congrArg Fin.val h01
+  omega
+end FreundTerm
+/- Some clarification.
+   So far, after defining the Freund term, we defined map "E" to define the "critical 0-subterms"
+   of the input and map "tree" to define the corresponding "two-labeled gap tree" for encoding.
+   Recall, GapTree.collapseWrap represented the tree pattern used for a collapsed ϑ-term. The
+   GapTree.Ebar scanes one tree and returns the critical collapse-shaped pieces inside. So, we are
+   left to show
+                  Ebar [tree (a)] = tree [E(a)]
+   (LHS) : After converting a FreundTerm to the tree structure we defined, we return the collapsed
+           tree.
+   (RHS) : After converting the input FreundTerm into the critical 0-subterm, using Freund's words,
+           we retrieve the tree representation.
+   This section connects are GapTree encoding with the FreundTerms-/
+namespace FreundTerm
+-- Ebar (ϑ (Ω)) = ∅
+@[simp]
+theorem Ebar_tree_Omega : GapTree.Ebar (tree .Omega) = (E .Omega).map tree := by
+  simp [tree, E, GapTree.Ebar, GapTree.EbarForest, GapTree.node1]
+-- for ϑ
+@[simp]
+theorem Ebar_tree_theta (a : FreundTerm) : GapTree.Ebar (tree (.theta a))
+        = (E (.theta a)).map tree := by
+  simp [E]
+theorem Ebar_tree_cnf_eq_EbarForest
+    {as : List FreundTerm}
+    (has : FreundTermList_normal as) :
+    GapTree.Ebar (tree (.cnf as)) =
+      GapTree.EbarForest (treeList as) := by
+  cases as with
+  | nil => simp [tree, cnfLabel, GapTree.Ebar]
+  | cons a as =>
+      by_cases haO : a <f .Omega
+      · have hno : ¬ ∃ u ∈ treeList (a :: as), GapTree.rootLabel u = GapTree.label1 :=
+          treeList_no_label1_of_normal_lt_Omega has haO
+        have hlabel : cnfLabel (a :: as) = GapTree.label0 := by
+          simp [cnfLabel, haO]
+        rw [tree, hlabel, GapTree.Ebar]
+        change
+          (if GapTree.label0 = GapTree.label0 ∧
+                ∃ u ∈ treeList (a :: as),
+                  GapTree.rootLabel u = GapTree.label1
+           then [GapTree.node GapTree.label0 (treeList (a :: as))]
+           else GapTree.EbarForest (treeList (a :: as))) =
+            GapTree.EbarForest (treeList (a :: as))
+        have hcrit :
+            ¬ (GapTree.label0 = GapTree.label0 ∧
+              ∃ u ∈ treeList (a :: as),
+                GapTree.rootLabel u = GapTree.label1) := by
+          intro h
+          exact hno h.2
+        rw [if_neg hcrit]
+      · simp [tree, cnfLabel, haO, GapTree.Ebar, GapTree.label0, GapTree.label1]
+mutual
+theorem Ebar_tree_eq_map_E {a : FreundTerm} (ha : FreundTerm_normal a) :
+        GapTree.Ebar (tree a) = (E a).map tree := by
+  cases ha with
+  | Omega => exact Ebar_tree_Omega
+  | @theta a ha => exact Ebar_tree_theta a
+  | @cnf as has hsingle =>
+    calc GapTree.Ebar (tree (.cnf as)) = GapTree.EbarForest (treeList as) :=
+      Ebar_tree_cnf_eq_EbarForest has
+    _ = (EList as).map tree := EbarForest_treeList_eq_map_EList has
+    _ = (E (.cnf as)).map tree := by rfl
+theorem EbarForest_treeList_eq_map_EList {as : List FreundTerm} (has : FreundTermList_normal as) :
+        GapTree.EbarForest (treeList as) = (EList as).map tree := by
+  cases has with
+  | nil => rfl
+  | @single a ha => change GapTree.Ebar (tree a) ++ [] = (E a ++ []).map tree
+                    rw [Ebar_tree_eq_map_E ha]
+                    simp
+  | @cons a b rest ha htail hbound =>
+      change GapTree.Ebar (tree a) ++ GapTree.EbarForest (treeList (b :: rest))
+             = (E a ++ EList (b :: rest)).map tree
+      rw [Ebar_tree_eq_map_E ha]
+      rw [EbarForest_treeList_eq_map_EList htail]
+      simp
+end
+end FreundTerm
+
+--========================================================================================
+-- Gap-Tree Order
+
+-- Embedding is transitive
+mutual
+theorem GapTreeEmbeds_trans {r s t : GapTree} (hrs : GapTreeEmbeds r s)
+        (hst : GapTreeEmbeds s t) : GapTreeEmbeds r t := by
+  sorry
+theorem GapForestEmbeds_trans {rs ss ts : List GapTree} (hrs : GapForestEmbeds rs ss)
+        (hst : GapForestEmbeds ss ts) : GapForestEmbeds rs ts := by
+  sorry
+end
+
+/- If
+             1
+          /  |  \
+        s₀  s₁  ...
+embeds into t, then each child sᵢ itself embeds into t.-/
+theorem GapTreeEmbeds_children_of_node1 {ss : List GapTree} {t : GapTree}
+        (h : GapTreeEmbeds (.node GapTree.label1 ss) t) :
+        ∀ s, s ∈ ss → GapTreeEmbeds s t := by
+  sorry
+/-
+If the encoding of θa embeds into the encoding of b, then it already
+embeds into the encoding of some critical term γ ∈ E(b).
+
+Uses:
+
+    collapseWrap_embeds_Ebar
+              +
+    Ebar_tree_eq_map_E
+-/
+namespace FruendTerm
+theorem theta_tree_embeds_support {a b : FreundTerm} (ha : FreundTerm_normal a)
+        (hb : FreundTerm_normal b)
+        (h : GapTreeEmbeds (tree (.theta a)) (tree b)) :
+        ∃ γ, γ ∈ E b ∧ GapTreeEmbeds (tree (.theta a)) (tree γ) := by
+  sorry
+end FruendTerm
+
+
+
+
 
 --========================================================================================
 -- Some Notes
