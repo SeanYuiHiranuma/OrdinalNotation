@@ -2636,14 +2636,143 @@ end FreundTerm
 --========================================================================================
 -- Gap-Tree Order
 
+-- Some helpers to swtich between data types (List has order, multiset does not)
+theorem multiset_coe_middle (before after : List GapTree) (t : GapTree) :
+        (↑(before ++ (t :: after)) : Multiset GapTree) =
+        t ::ₘ (↑(before ++ after) : Multiset GapTree) := by
+  rw [← Multiset.coe_add before (t :: after)]
+  rw [← Multiset.coe_add before after]
+  rw [← Multiset.cons_coe t after]
+  rw [← Multiset.singleton_add t (↑after : Multiset GapTree)]
+  rw [← Multiset.singleton_add t
+    ((↑before : Multiset GapTree) + (↑after : Multiset GapTree))]
+  ac_rfl
+theorem GapForestEmbeds_to_multiset {ss ts : List GapTree} (h : GapForestEmbeds ss ts) :
+        ∃ us : Multiset GapTree, Multiset.Rel GapTreeEmbeds (↑ss : Multiset GapTree) us ∧
+        us ≤ (↑ts : Multiset GapTree) := by
+  cases h with
+  | nil => exact ⟨0, Multiset.Rel.zero, Multiset.zero_le _⟩
+  | @cons s t ss before after hst hrest =>
+      obtain ⟨us, hrel, hle⟩ := GapForestEmbeds_to_multiset hrest
+      refine ⟨t ::ₘ us, ?_, ?_⟩
+      · simpa using Multiset.Rel.cons hst hrel
+      · rw [multiset_coe_middle before after t]
+        exact Multiset.cons_le_cons t hle
+theorem GapForestEmbeds_of_multiset {ss ts : List GapTree}
+        (h : ∃ us : Multiset GapTree, Multiset.Rel GapTreeEmbeds (↑ss : Multiset GapTree) us ∧
+             us ≤ (↑ts : Multiset GapTree)) :
+        GapForestEmbeds ss ts := by
+  induction ss generalizing ts with
+  | nil => exact GapForestEmbeds.nil
+  | cons s ss ih =>
+      obtain ⟨us, hrel, hle⟩ := h
+      change Multiset.Rel GapTreeEmbeds (s ::ₘ (↑ss : Multiset GapTree)) us at hrel
+      obtain ⟨t, us', hst, hrel', hus⟩ := Multiset.rel_cons_left.mp hrel
+      rw [hus] at hle
+      have htM : t ∈ (↑ts : Multiset GapTree) :=
+        Multiset.mem_of_le hle (Multiset.mem_cons_self t us')
+      have ht : t ∈ ts := by simpa using htM
+      obtain ⟨before, after, hts⟩ := List.append_of_mem ht
+      rw [hts] at hle
+      rw [multiset_coe_middle before after t] at hle
+      have hle' : us' ≤ (↑(before ++ after) : Multiset GapTree) :=
+        (Multiset.cons_le_cons_iff t).mp hle
+      have hrest : GapForestEmbeds ss (before ++ after) :=
+        ih ⟨us', hrel', hle'⟩
+      rw [hts]
+      exact GapForestEmbeds.cons hst hrest
+
+theorem GapForestEmbeds_extract {before after : List GapTree} {s : GapTree} {ts : List GapTree}
+        (h : GapForestEmbeds (before ++ (s :: after)) ts) :
+        ∃ t before' after', ts = before' ++ (t :: after') ∧ GapTreeEmbeds s t ∧
+                            GapForestEmbeds (before ++ after) (before' ++ after') := by
+  obtain ⟨us, hrel, hle⟩ := GapForestEmbeds_to_multiset h
+  rw [multiset_coe_middle before after s] at hrel
+  obtain ⟨t, us', hst, hrel', hus⟩ :=
+    Multiset.rel_cons_left.mp hrel
+  rw [hus] at hle
+  have htM : t ∈ (↑ts : Multiset GapTree) := Multiset.mem_of_le hle (Multiset.mem_cons_self t us')
+  have ht : t ∈ ts := by simpa using htM
+  obtain ⟨before', after', hts⟩ := List.append_of_mem ht
+  rw [hts] at hle
+  rw [multiset_coe_middle before' after' t] at hle
+  have hle' : us' ≤ (↑(before' ++ after') : Multiset GapTree) :=
+    (Multiset.cons_le_cons_iff t).mp hle
+  have hrest : GapForestEmbeds (before ++ after) (before' ++ after') :=
+    GapForestEmbeds_of_multiset ⟨us', hrel', hle'⟩
+  exact ⟨t, before', after', hts, hst, hrest⟩
+
+namespace GapTree
+mutual
+def transComplexity : GapTree → Nat
+  | .node _ ts => transComplexityList ts + 1
+def transComplexityList : List GapTree → Nat
+  | [] => 0
+  | t :: ts => transComplexity t + transComplexityList ts
+end
+
+@[simp]
+theorem transComplexityList_append (before after : List GapTree) :
+    transComplexityList (before ++ after) =
+      transComplexityList before + transComplexityList after := by
+  induction before with
+  | nil => simp [transComplexityList]
+  | cons t before ih => simp [transComplexityList, ih, Nat.add_assoc]
+
+theorem transComplexity_pos (t : GapTree) : 0 < transComplexity t := by
+  cases t
+  simp [transComplexity]
+end GapTree
+
 -- Embedding is transitive
 mutual
-theorem GapTreeEmbeds_trans {r s t : GapTree} (hrs : GapTreeEmbeds r s)
-        (hst : GapTreeEmbeds s t) : GapTreeEmbeds r t := by
-  sorry
+theorem GapTreeEmbeds_trans {r s t : GapTree} (hrs : GapTreeEmbeds r s) (hst : GapTreeEmbeds s t) :
+        GapTreeEmbeds r t := by
+  cases hst with
+  | @root n ss ts hstForest =>
+  -- When same node and ss embeds into ts
+    cases hrs with
+    | root hrsForest =>
+    -- rs embeds into ss
+      exact GapTreeEmbeds.root (GapForestEmbeds_trans hrsForest hstForest)
+    | @descend r s₀ _ before after hlabel hrsSub =>
+      obtain ⟨u, before', after', hts, hs₀u, _⟩ :=
+        GapForestEmbeds_extract (before := before) (after := after) (s := s₀) hstForest
+      rw [hts]
+      apply GapTreeEmbeds.descend hlabel
+      exact GapTreeEmbeds_trans hrsSub hs₀u
+  | @descend s t₀ n before after hlabel hstSub =>
+    apply GapTreeEmbeds.descend
+    · exact le_trans (GapTreeEmbeds_rootLabel_le hrs) hlabel
+    · exact GapTreeEmbeds_trans hrs hstSub
+termination_by
+  GapTree.transComplexity r + GapTree.transComplexity s + GapTree.transComplexity t
+decreasing_by
+  all_goals subst_vars
+  all_goals simp [GapTree.transComplexity, GapTree.transComplexityList]
+  all_goals omega
+
 theorem GapForestEmbeds_trans {rs ss ts : List GapTree} (hrs : GapForestEmbeds rs ss)
         (hst : GapForestEmbeds ss ts) : GapForestEmbeds rs ts := by
-  sorry
+  cases hrs with
+  | nil => exact GapForestEmbeds.nil
+  | @cons r s rs before after hrsTree hrsRest =>
+      obtain ⟨t, before', after', hts, hstTree, hstRest⟩ :=
+        GapForestEmbeds_extract (before := before) (after := after) (s := s) hst
+      rw [hts]
+      exact GapForestEmbeds.cons
+        (GapTreeEmbeds_trans hrsTree hstTree)
+        (GapForestEmbeds_trans hrsRest hstRest)
+termination_by
+  GapTree.transComplexityList rs + GapTree.transComplexityList ss +
+    GapTree.transComplexityList ts + 1
+decreasing_by
+  all_goals subst_vars
+  all_goals have hr := GapTree.transComplexity_pos r
+  all_goals have hs := GapTree.transComplexity_pos s
+  all_goals have ht := GapTree.transComplexity_pos t
+  all_goals simp [GapTree.transComplexity, GapTree.transComplexityList]
+  all_goals omega
 end
 
 /- If
@@ -2654,24 +2783,982 @@ embeds into t, then each child sᵢ itself embeds into t.-/
 theorem GapTreeEmbeds_children_of_node1 {ss : List GapTree} {t : GapTree}
         (h : GapTreeEmbeds (.node GapTree.label1 ss) t) :
         ∀ s, s ∈ ss → GapTreeEmbeds s t := by
-  sorry
+  intro s hs
+  -- hss : before ++ (ss :: after)
+  obtain ⟨before, after, hss⟩ := List.append_of_mem hs
+  have hchild : GapTreeEmbeds s (.node GapTree.label1 ss) := by
+    rw [hss]; exact GapTreeEmbeds_into_parent (GapTree_le_label1 _)
+  exact GapTreeEmbeds_trans hchild h
+
 /-
 If the encoding of θa embeds into the encoding of b, then it already
 embeds into the encoding of some critical term γ ∈ E(b).
 
 Uses:
-
     collapseWrap_embeds_Ebar
               +
     Ebar_tree_eq_map_E
 -/
-namespace FruendTerm
-theorem theta_tree_embeds_support {a b : FreundTerm} (ha : FreundTerm_normal a)
+namespace FreundTerm
+theorem theta_tree_embeds_support {a b : FreundTerm} (_ha : FreundTerm_normal a)
         (hb : FreundTerm_normal b)
         (h : GapTreeEmbeds (tree (.theta a)) (tree b)) :
         ∃ γ, γ ∈ E b ∧ GapTreeEmbeds (tree (.theta a)) (tree γ) := by
-  sorry
-end FruendTerm
+  have hwrap : GapTreeEmbeds (GapTree.collapseWrap (tree a)) (tree b) := by
+    simpa using h
+  obtain ⟨u, huEbar, huEmbed⟩ := collapseWrap_embeds_Ebar hwrap
+  have hEbar : GapTree.Ebar (tree b) = (E b).map tree := Ebar_tree_eq_map_E hb
+  rw [hEbar] at huEbar
+  obtain ⟨γ, hγE, hγtree⟩ := List.mem_map.mp huEbar
+  refine ⟨γ, hγE, ?_⟩
+  simpa [hγtree] using huEmbed
+
+theorem treeList_embedding_head {a : FreundTerm} {as bs : List FreundTerm}
+        (h : GapForestEmbeds (treeList (a :: as)) (treeList bs)) :
+        ∃ b, b ∈ bs ∧ GapTreeEmbeds (tree a) (tree b) := by
+  have ha_mem : tree a ∈ (treeList (a :: as)) := by simp [treeList]
+  obtain ⟨u, hu, hau⟩ := GapForestEmbeds_exists_of_mem h ha_mem
+  obtain ⟨b, hb, hbu⟩ := FreundTerm.mem_treeList_iff.mp hu
+  refine ⟨b, hb, ?_⟩
+  rw [hbu]
+  exact hau
+
+
+mutual
+theorem E_mem_complexity_le {a g : FreundTerm} (hg : g ∈ E a) : complexity g ≤ complexity a := by
+  cases a with
+  | Omega => simp [E] at hg
+  | theta a => simp [E] at hg
+               subst g
+               exact le_rfl
+  | cnf as => change g ∈ EList as at hg
+              have h := EList_mem_complexity_lt hg
+              simp only [complexity]
+              omega
+theorem EList_mem_complexity_lt {as : List FreundTerm} {g : FreundTerm} (hg : g ∈ EList as) :
+        complexity g < complexityList as + 1 := by
+  cases as with
+  | nil => simp [EList] at hg
+  | cons a as => change g ∈ E a ++ EList as at hg
+                 simp only [List.mem_append] at hg
+                 rcases hg with hga | hgas
+                 · have hle : complexity g ≤ complexity a :=
+                    E_mem_complexity_le hga
+                   simp only [complexityList]
+                   omega
+                 · have hlt : complexity g < complexityList as + 1 :=
+                    EList_mem_complexity_lt hgas
+                   simp only [complexityList]
+                   omega
+end
+theorem E_mem_complexity_lt_theta {a g : FreundTerm} (hg : g ∈ E a) :
+        complexity g < complexity (.theta a) := by
+  have h := E_mem_complexity_le hg
+  simp only [complexity]
+  omega
+
+mutual
+theorem FreundTerm_lt_trans {a b c : FreundTerm} (hab : a <f b) (hbc : b <f c) : a <f c := by
+  have habCopy := hab; have hbcCopy := hbc
+  cases hbc with
+  | Omega_cnf_lt cHead => cases hab with
+                          | theta_Omega =>
+                            exact FreundTerm_lt.theta_cnf_lt
+                                  (FreundTerm_lt_trans FreundTerm_lt.theta_Omega cHead)
+                          | cnf_nil_Omega => exact FreundTerm_lt.cnf_cnf FreundTermList_lt.nil
+                          | cnf_Omega aHead =>
+                            exact FreundTerm_lt.cnf_cnf
+                                  (FreundTermList_lt.head (FreundTerm_lt_trans aHead cHead))
+  | Omega_cnf_eq => cases hab with
+                    | theta_Omega => exact FreundTerm_lt.theta_cnf_lt FreundTerm_lt.theta_Omega
+                    | cnf_nil_Omega => exact FreundTerm_lt.cnf_cnf FreundTermList_lt.nil
+                    | cnf_Omega aHead => exact FreundTerm_lt.cnf_cnf (FreundTermList_lt.head aHead)
+  | theta_Omega => cases hab with
+                   | theta_theta_forward => exact FreundTerm_lt.theta_Omega
+                   | theta_theta_support_lt => exact FreundTerm_lt.theta_Omega
+                   | theta_theta_support_eq => exact FreundTerm_lt.theta_Omega
+                   | cnf_nil_theta => exact FreundTerm_lt.cnf_nil_Omega
+                   | cnf_theta h =>
+                     exact FreundTerm_lt.cnf_Omega
+                           (FreundTerm_lt_Omega_trans h FreundTerm_lt.theta_Omega)
+
+  | theta_cnf_lt hbcHead => cases hab with
+                            | theta_theta_forward =>
+                              exact FreundTerm_lt.theta_cnf_lt (FreundTerm_lt_trans habCopy hbcHead)
+                            | theta_theta_support_lt =>
+                              exact FreundTerm_lt.theta_cnf_lt (FreundTerm_lt_trans habCopy hbcHead)
+                            | theta_theta_support_eq =>
+                              exact FreundTerm_lt.theta_cnf_lt (FreundTerm_lt_trans habCopy hbcHead)
+                            | cnf_nil_theta =>
+                              exact FreundTerm_lt.cnf_cnf FreundTermList_lt.nil
+                            | cnf_theta habHead =>
+                              exact FreundTerm_lt.cnf_cnf (FreundTermList_lt.head
+                                      (FreundTerm_lt_trans habHead hbcHead))
+  | theta_cnf_eq => cases hab with
+                    | theta_theta_forward => exact FreundTerm_lt.theta_cnf_lt habCopy
+                    | theta_theta_support_lt => exact FreundTerm_lt.theta_cnf_lt habCopy
+                    | theta_theta_support_eq => exact FreundTerm_lt.theta_cnf_lt habCopy
+                    | cnf_nil_theta => exact FreundTerm_lt.cnf_cnf FreundTermList_lt.nil
+                    | cnf_theta habHead =>
+                      exact FreundTerm_lt.cnf_cnf (FreundTermList_lt.head habHead)
+  | theta_theta_forward hbcArg hEbc =>
+      cases hab with
+      | theta_theta_forward habArg hEab =>
+          apply FreundTerm_lt.theta_theta_forward
+          · exact FreundTerm_lt_trans habArg hbcArg
+          · intro g hg
+            have hgComplexity : complexity g ≤ complexity _ := E_mem_complexity_le hg
+            exact FreundTerm_lt_trans (hEab g hg) hbcCopy
+      | @theta_theta_support_lt _ _ g hg hθag =>
+          have hgComplexity : complexity g ≤ complexity _ := E_mem_complexity_le hg
+          exact FreundTerm_lt_trans hθag (hEbc g hg)
+      | theta_theta_support_eq hg => exact hEbc _ hg
+      | cnf_nil_theta => exact FreundTerm_lt.cnf_nil_theta
+      | cnf_theta hHead => exact FreundTerm_lt.cnf_theta (FreundTerm_lt_trans hHead hbcCopy)
+  | theta_theta_support_lt hg hθbg =>
+      have hgComplexity : complexity _ ≤ complexity _ :=
+        E_mem_complexity_le hg
+      cases hab with
+      | theta_theta_forward =>
+          exact FreundTerm_lt.theta_theta_support_lt hg
+            (FreundTerm_lt_trans habCopy hθbg)
+      | theta_theta_support_lt =>
+          exact FreundTerm_lt.theta_theta_support_lt hg
+            (FreundTerm_lt_trans habCopy hθbg)
+      | theta_theta_support_eq =>
+          exact FreundTerm_lt.theta_theta_support_lt hg
+            (FreundTerm_lt_trans habCopy hθbg)
+      | cnf_nil_theta =>
+          exact FreundTerm_lt.cnf_nil_theta
+      | cnf_theta hHead =>
+          exact FreundTerm_lt.cnf_theta
+            (FreundTerm_lt_trans hHead hbcCopy)
+  | theta_theta_support_eq hg =>
+      cases hab with
+      | theta_theta_forward =>
+          exact FreundTerm_lt.theta_theta_support_lt hg habCopy
+      | theta_theta_support_lt =>
+          exact FreundTerm_lt.theta_theta_support_lt hg habCopy
+      | theta_theta_support_eq =>
+          exact FreundTerm_lt.theta_theta_support_lt hg habCopy
+      | cnf_nil_theta =>
+          exact FreundTerm_lt.cnf_nil_theta
+      | cnf_theta hHead =>
+          exact FreundTerm_lt.cnf_theta
+            (FreundTerm_lt_trans hHead hbcCopy)
+  | cnf_nil_Omega =>
+      cases hab with
+      | cnf_cnf h => cases h
+  | cnf_nil_theta =>
+      cases hab with
+      | cnf_cnf h => cases h
+  | cnf_Omega hbO =>
+      cases hab with
+      | Omega_cnf_lt hOb =>
+          have hbad : (.Omega : FreundTerm) <f .Omega :=
+            FreundTerm_lt_Omega_trans hOb hbO
+          cases hbad
+      | Omega_cnf_eq => cases hbO
+      | theta_cnf_lt => exact FreundTerm_lt.theta_Omega
+      | theta_cnf_eq => exact FreundTerm_lt.theta_Omega
+      | cnf_cnf habList =>
+          cases habList with
+          | nil => exact FreundTerm_lt.cnf_nil_Omega
+          | head hHead =>
+              exact FreundTerm_lt.cnf_Omega
+                (FreundTerm_lt_Omega_trans hHead hbO)
+          | tail => exact FreundTerm_lt.cnf_Omega hbO
+  | cnf_theta hbcHead =>
+      cases hab with
+      | Omega_cnf_lt hOb => have hbad : (.Omega : FreundTerm) <f _ :=
+                              FreundTerm_lt_trans hOb hbcHead
+                            cases hbad
+      | Omega_cnf_eq => cases hbcHead
+      | theta_cnf_lt habHead =>
+          exact FreundTerm_lt_trans habHead hbcHead
+      | theta_cnf_eq => exact hbcHead
+      | cnf_cnf habList =>
+          cases habList with
+          | nil => exact FreundTerm_lt.cnf_nil_theta
+          | head hHead =>
+              exact FreundTerm_lt.cnf_theta
+                (FreundTerm_lt_trans hHead hbcHead)
+          | tail => exact FreundTerm_lt.cnf_theta hbcHead
+  | cnf_cnf hbcList =>
+      cases hbcList with
+      | nil =>
+          cases hab with
+          | cnf_cnf habList => cases habList
+      | head hbcHead =>
+          cases hab with
+          | Omega_cnf_lt habHead =>
+              exact FreundTerm_lt.Omega_cnf_lt
+                (FreundTerm_lt_trans habHead hbcHead)
+          | Omega_cnf_eq =>
+              exact FreundTerm_lt.Omega_cnf_lt hbcHead
+          | theta_cnf_lt habHead =>
+              exact FreundTerm_lt.theta_cnf_lt
+                (FreundTerm_lt_trans habHead hbcHead)
+          | theta_cnf_eq =>
+              exact FreundTerm_lt.theta_cnf_lt hbcHead
+          | cnf_cnf habList =>
+              exact FreundTerm_lt.cnf_cnf
+                (FreundTermList_lt_trans
+                  habList
+                  (FreundTermList_lt.head hbcHead))
+      | tail hbcTail =>
+          cases hab with
+          | Omega_cnf_lt habHead =>
+              exact FreundTerm_lt.Omega_cnf_lt habHead
+          | Omega_cnf_eq =>
+              exact FreundTerm_lt.Omega_cnf_eq
+          | theta_cnf_lt habHead =>
+              exact FreundTerm_lt.theta_cnf_lt habHead
+          | theta_cnf_eq =>
+              exact FreundTerm_lt.theta_cnf_eq
+          | cnf_cnf habList =>
+              exact FreundTerm_lt.cnf_cnf
+                (FreundTermList_lt_trans
+                  habList
+                  (FreundTermList_lt.tail hbcTail))
+termination_by
+  complexity a + complexity b + complexity c
+decreasing_by
+  all_goals subst_vars
+  all_goals
+    simp [FreundTerm.complexity,
+          FreundTerm.complexityList]
+  all_goals omega
+
+theorem FreundTermList_lt_trans {as bs cs : List FreundTerm} (hab : FreundTermList_lt as bs)
+    (hbc : FreundTermList_lt bs cs) : FreundTermList_lt as cs := by
+  cases hab with
+  | nil =>
+      cases hbc with
+      | head => exact FreundTermList_lt.nil
+      | tail => exact FreundTermList_lt.nil
+  | head habHead =>
+      cases hbc with
+      | head hbcHead =>
+          exact FreundTermList_lt.head
+            (FreundTerm_lt_trans habHead hbcHead)
+      | tail => exact FreundTermList_lt.head habHead
+  | tail habTail =>
+      cases hbc with
+      | head hbcHead => exact FreundTermList_lt.head hbcHead
+      | tail hbcTail =>
+          exact FreundTermList_lt.tail
+            (FreundTermList_lt_trans habTail hbcTail)
+  termination_by
+  complexityList as +
+  complexityList bs +
+  complexityList cs + 1
+  decreasing_by
+  all_goals subst_vars
+  all_goals
+    simp [FreundTerm.complexity,
+          FreundTerm.complexityList]
+  all_goals omega
+end
+theorem FreundTerm_le_trans {a b c : FreundTerm} (hab : a ≤f b) (hbc : b ≤f c) :
+        a ≤f c := by
+  rcases hab with hab | hab
+  · rcases hbc with hbc | hbc
+    · exact Or.inl (FreundTerm_lt_trans hab hbc)
+    · subst c; exact Or.inl hab
+  · subst b; exact hbc
+theorem FreundTerm_lt_of_lt_of_le {a b c : FreundTerm} (hab : a <f b) (hbc : b ≤f c) :
+        a <f c := by
+  rcases hbc with hbc | hbc
+  · exact FreundTerm_lt_trans hab hbc
+  · subst c; exact hab
+theorem FreundTerm_lt_of_le_of_lt {a b c : FreundTerm} (hab : a ≤f b) (hbc : b <f c) :
+        a <f c := by
+  rcases hab with hab | hab
+  · exact FreundTerm_lt_trans hab hbc
+  · subst b; exact hbc
+
+
+theorem GapForestEmbeds_cancel_head {s : GapTree} {ss ts : List GapTree}
+        (h : GapForestEmbeds (s :: ss) (s :: ts)) :
+        GapForestEmbeds ss ts := by
+  -- ∃t before after, htarget (s :: ts = before ++ t :: after)
+  -- hst : GapTreeEmbeds s t, hrest : GapForestEmbeds ss (before ++ after)
+  obtain ⟨t, before, after, htarget, hst, hrest⟩ := GapForestEmbeds_head h
+  cases before with
+  | nil =>
+    simp only [List.nil_append] at htarget hrest
+    -- htarget : s :: ts = t :: after
+    -- hrest : GapForestEmbeds ss [after]
+    injection htarget with hst_eq htail_eq
+    -- s = t / ts = after
+    subst t; subst after
+    -- GapForestEmbeds ss [ts]
+    exact hrest
+  | cons x before =>
+    simp only [List.cons_append] at htarget hrest
+    -- htarget : s :: ts = x :: before ++ t :: after
+    -- hrest : GapForestEmbeds ss (x :: before ++ after)
+    injection htarget with hx hts
+    -- s = x / ts = before ++ t :: after
+    subst x
+    have hrest' : GapForestEmbeds ss (s :: (before ++ after)) := by
+      simpa using hrest
+    have hswap : GapForestEmbeds (s :: (before ++ after)) (before ++ (t :: after)) := by
+      exact GapForestEmbeds.cons hst (GapForestEmbeds_refl (before ++ after))
+    have hfinal : GapForestEmbeds ss (before ++ (t :: after)) :=
+      GapForestEmbeds_trans hrest' hswap
+    rw [hts]
+    exact hfinal
+-- If a FreundTermList is normal, every element of it is normal
+theorem FreundTermList_normal_mem {as : List FreundTerm} (h : FreundTermList_normal as) :
+        ∀ a, a ∈ as → FreundTerm_normal a := by
+  intro a ha
+  cases as with
+  | nil => simp at ha
+  | cons b bs =>
+    cases bs with
+    -- as = b :: []
+    | nil => cases h with
+             | single hb =>
+               simp only [List.mem_singleton] at ha
+               subst a; exact hb
+    -- as = b :: (c :: crest)
+    | cons c crest =>
+      -- h : FreundTermList_normal (b :: c :: crest)
+      cases h with
+      -- hb : FreundTerm_normal b / htail : List_normal (c :: crest)
+      -- hbound : ∀ t ∈ c :: crest, r ≤f b
+      | cons hb htail hbound =>
+        rw [List.mem_cons] at ha
+        -- rfl : a = b, ha = a ∈ (c :: crest)
+        rcases ha with rfl | other
+        · exact hb
+        · exact FreundTermList_normal_mem htail a other
+def FreundTermList_le (as bs : List FreundTerm) : Prop := FreundTermList_lt as bs ∨ as = bs
+infix:50 " ≤fl " => FreundTermList_le
+-- E mapping (simply collapsing the theta) of normal element gives normal
+mutual
+theorem E_mem_normal {a g : FreundTerm} (ha : FreundTerm_normal a) (hg : g ∈ E a) :
+        FreundTerm_normal g := by
+  cases a with
+  | Omega => simp [E] at hg
+  | theta b => have hgb : g = .theta b := by
+                simpa [E] using hg
+               subst g
+               exact ha
+  | cnf as => change g ∈ EList as at hg
+              cases ha with
+              | cnf has hsingle => exact EList_mem_normal has hg
+theorem EList_mem_normal {as : List FreundTerm} {g : FreundTerm} (has : FreundTermList_normal as)
+        (hg : g ∈ EList as) : FreundTerm_normal g := by
+  cases as with
+  | nil => simp [EList] at hg
+  | cons a as' =>
+    change g ∈ E a ++ EList as' at hg
+    rw [List.mem_append] at hg -- g ∈ E a ∨ g ∈ EList as
+    rcases hg with hga | hgas
+    · have ha : FreundTerm_normal a := FreundTermList_normal_head has
+      exact E_mem_normal ha hga
+    · have hasTail : FreundTermList_normal as' := FreundTermList_normal_tail has
+      exact EList_mem_normal hasTail hgas
+end
+theorem complexity_lt_cnf_of_mem {a : FreundTerm} {as : List FreundTerm} (ha : a ∈ as) :
+        complexity a < complexity (.cnf as) := by
+  simp only [complexity]
+  induction as with
+  | nil => simp at ha
+  | cons b bs ih => rw [List.mem_cons] at ha
+                    rcases ha with rfl | ha'
+                    · simp only [complexityList]
+                      omega
+                    · have hlt := ih ha'
+                      simp only [complexityList]
+                      omega
+@[simp]
+theorem complexity_lt_theta (a : FreundTerm) : complexity a < complexity (.theta a) := by
+  simp [complexity]
+theorem Omega_le_of_not_lt_Omega {a : FreundTerm} (h : ¬ a <f .Omega) :
+        (.Omega : FreundTerm) ≤f a := by
+  cases a with
+  | Omega => exact Or.inr rfl
+  | theta a => exfalso; exact h FreundTerm_lt.theta_Omega
+  | cnf as => cases as with
+              | nil => exfalso; exact h FreundTerm_lt.cnf_nil_Omega
+              | cons b bs =>
+                by_cases hb : b <f .Omega
+                · exfalso; exact h (FreundTerm_lt.cnf_Omega hb)
+                · have hOb : (.Omega : FreundTerm) ≤f b :=
+                    Omega_le_of_not_lt_Omega hb
+                  rcases hOb with hOb | hOb
+                  · exact Or.inl (FreundTerm_lt.Omega_cnf_lt hOb)
+                  · subst b; exact Or.inl FreundTerm_lt.Omega_cnf_eq
+mutual
+
+theorem GapTreeEmbeds_transComplexity_le {s t : GapTree} (h : GapTreeEmbeds s t) :
+        GapTree.transComplexity s ≤ GapTree.transComplexity t := by
+  cases h with
+  | @root n ss ts hforest =>
+      have hle := GapForestEmbeds_transComplexityList_le hforest
+      simp only [GapTree.transComplexity]; omega
+  | @descend s t n before after hlabel hsub =>
+      have hle := GapTreeEmbeds_transComplexity_le hsub
+      have htpos := GapTree.transComplexity_pos t
+      simp [GapTree.transComplexity, GapTree.transComplexityList,
+            GapTree.transComplexityList_append]; omega
+  termination_by GapTree.transComplexity s + GapTree.transComplexity t
+  decreasing_by
+    all_goals subst_vars
+    all_goals
+      simp [
+      GapTree.transComplexity,
+      GapTree.transComplexityList,
+      GapTree.transComplexityList_append
+      ]
+    all_goals omega
+theorem GapForestEmbeds_transComplexityList_le {ss ts : List GapTree} (h : GapForestEmbeds ss ts) :
+        GapTree.transComplexityList ss ≤ GapTree.transComplexityList ts := by
+  cases h with
+  | nil => simp [GapTree.transComplexityList]
+  | @cons s t ss before after hst hrest =>
+      have hTree := GapTreeEmbeds_transComplexity_le hst
+      have hForest := GapForestEmbeds_transComplexityList_le hrest
+      simp [
+        GapTree.transComplexityList,
+        GapTree.transComplexityList_append
+      ] at *
+      omega
+  termination_by GapTree.transComplexityList ss +
+    GapTree.transComplexityList ts + 1
+  decreasing_by
+    all_goals subst_vars
+    all_goals have hspos := GapTree.transComplexity_pos s
+    all_goals
+      simp [
+        GapTree.transComplexity,
+        GapTree.transComplexityList,
+        GapTree.transComplexityList_append
+      ]
+    all_goals omega
+end
+-- g ∈ E(a) → Ebar (g) ≤ Ebar (a)
+theorem E_mem_tree_embeds {a g : FreundTerm} (ha : FreundTerm_normal a) (hg : g ∈ E a) :
+        GapTreeEmbeds (tree g) (tree a) := by
+  have hmem : tree g ∈ GapTree.Ebar (tree a) := by
+    rw [Ebar_tree_eq_map_E ha]
+    exact List.mem_map.mpr ⟨g, hg, rfl⟩
+  exact Ebar_mem_embeds hmem
+theorem GapTreeEmbeds_to_node_cases {s : GapTree} {n : GapLabel} {ts : List GapTree}
+        (h : GapTreeEmbeds s (.node n ts)) :
+        (∃ ss, s = .node n ss ∧ GapForestEmbeds ss ts) ∨
+        (∃ t, t ∈ ts ∧ GapTreeEmbeds s t) := by
+  cases h with
+  | @root n ss ts hforest =>
+    exact Or.inl ⟨ss, rfl, hforest⟩
+  | @descend s t n before after hlabel hsub =>
+    exact Or.inr ⟨t, by simp, hsub⟩
+theorem GapTreeEmbeds_node1_singleton_cancel {s t : GapTree}
+        (h : GapTreeEmbeds (.node GapTree.label1 [s]) (.node GapTree.label1 [t])) :
+        GapTreeEmbeds s t := by
+  rcases GapTreeEmbeds_to_node_cases h with hroot | hdesc
+  -- hsource : s = .node n ss
+  -- hforest : GapForestEmbeds ss ts
+  · obtain ⟨ss, hsource, hforest⟩ := hroot
+    have hchildren := congrArg GapTree.children hsource
+    have hss : ss = [s] := by simpa using hchildren.symm
+    subst ss
+    have hs : s ∈ [s] := by simp
+    obtain ⟨u, hu, hsu⟩ := GapForestEmbeds_exists_of_mem hforest hs
+    have hu' : u = t := by simpa using hu
+    subst u; exact hsu
+  -- hu : t ∈ ts / hsub : GapTreeEmbeds s t
+  · obtain ⟨u, hu, hsub⟩ := hdesc
+    have hu' : u = t := by simpa using hu
+    subst u
+    exact GapTreeEmbeds_children_of_node1 hsub s (by simp)
+theorem E_mem_tree_rootLabel_eq_label0 {a g : FreundTerm} (ha : FreundTerm_normal a)
+        (hg : g ∈ E a) : GapTree.rootLabel (tree g) = GapTree.label0 := by
+  have hmem : tree g ∈ GapTree.Ebar (tree a) := by
+    rw [Ebar_tree_eq_map_E ha]; exact List.mem_map.mpr ⟨g, hg, rfl⟩
+  exact Ebar_mem_rootLabel_eq_label0 hmem
+-- A 0-root tree that embeds into t also embeds into the collapsed t
+theorem GapTreeEmbeds_into_collapseWrap_of_root0 {s t : GapTree}
+        (hroot : GapTree.rootLabel s = GapTree.label0) (h : GapTreeEmbeds s t) :
+        GapTreeEmbeds s (GapTree.collapseWrap t) := by
+  have h1 : GapTreeEmbeds s (.node GapTree.label1 [t]) := by
+    change GapTreeEmbeds s (.node GapTree.label1 ([] ++ (t :: [])))
+    exact GapTreeEmbeds.descend (GapTree_le_label1 _) h
+  have h0 : GapTreeEmbeds s (.node GapTree.label0 [(.node GapTree.label1 [t])]) := by
+    change GapTreeEmbeds s (.node GapTree.label0 ([] ++ ((.node GapTree.label1 [t]) :: [] )))
+    apply GapTreeEmbeds.descend
+    · simpa [hroot] using (le_rfl : GapTree.label0 ≤ GapTree.label0)
+    · exact h1
+  simpa [GapTree.collapseWrap, GapTree.node0, GapTree.node1] using h0
+
+-- Every term is strictly below the CNF whose first entry is that term
+theorem FreundTerm_lt_cnf_cons_self (a : FreundTerm) (as : List FreundTerm) :
+        a <f .cnf (a :: as) := by
+  cases a with
+  | Omega => exact FreundTerm_lt.Omega_cnf_eq
+  | theta a => exact FreundTerm_lt.theta_cnf_eq
+  | cnf cs => cases cs with
+              | nil => exact FreundTerm_lt.cnf_cnf FreundTermList_lt.nil
+              | cons c cxs =>
+                exact FreundTerm_lt.cnf_cnf (FreundTermList_lt.head
+                      (FreundTerm_lt_cnf_cons_self c cxs))
+
+theorem EList_mem_exists {as : List FreundTerm} {g : FreundTerm} (hg : g ∈ EList as) :
+        ∃ a, a ∈ as ∧ g ∈ E a := by
+  induction as with
+  | nil => simp [EList] at hg
+  | cons a as ih =>
+    change g ∈ E a ++ EList as at hg
+    rw [List.mem_append] at hg -- g = (EList as head), g ∈ (Elist as tail)
+    rcases hg with hga | hgas
+    · exact ⟨a, by simp, hga⟩
+    · obtain ⟨b, hb, hgb⟩ := ih hgas
+      exact ⟨b, by simp [hb], hgb⟩
+theorem E_mem_le_self {a g : FreundTerm} (ha : FreundTerm_normal a) (hg : g ∈ E a) : g ≤f a := by
+  cases a with
+  | Omega => simp [E] at hg
+  | theta a => have hg' : g = .theta a := by
+                simpa [E] using hg
+               subst g; exact Or.inr rfl
+  | cnf as =>
+    cases ha with
+    /- cnf {as : List FreundTerm} (has : FreundTermList_normal as)
+        (hsingle : ∀ a, as = [a] → FreundSingletonOK a) -/
+    | cnf has hsingle =>
+      change g ∈ EList as at hg
+      -- c : ∃ c, hc : c ∈ as, hgc : g ∈ a.E
+      obtain ⟨c, hc, hgc⟩ := EList_mem_exists hg
+      have hcNormal : FreundTerm_normal c := FreundTermList_normal_mem has c hc
+      have hcCmplx : complexity c < complexity (.cnf as) := complexity_lt_cnf_of_mem hc
+      have hgcLe : g ≤f c := E_mem_le_self hcNormal hgc
+      cases as with
+      | nil => simp at hc
+      | cons ax axs => have hcHead : c ≤f ax := by
+                        simp only [List.mem_cons] at hc
+                        rcases hc with rfl | hc
+                        · exact Or.inr rfl
+                        · exact FreundTermList_normal_tail_bounded has c hc
+                       have hgHead : g ≤f ax :=
+                        FreundTerm_le_trans hgcLe hcHead
+                       exact Or.inl (FreundTerm_lt_of_le_of_lt hgHead
+                             (FreundTerm_lt_cnf_cons_self ax axs))
+-- Critical terms of a CNF term are strictly below the whole CNF term
+theorem E_mem_lt_cnf {as : List FreundTerm} {g : FreundTerm} (ha : FreundTerm_normal (.cnf as))
+        (hg : g ∈ E (.cnf as)) : g <f .cnf as := by
+  have hle : g ≤f .cnf as := E_mem_le_self ha hg
+  rcases hle with hlt | heq
+  · exact hlt
+  · have hg' := hg; change g ∈ EList as at hg'
+    have hcmplx := EList_mem_complexity_lt hg'
+    subst g
+    simp only [complexity] at hcmplx; omega
+
+-- Root label bound
+theorem tree_mem_rootLabel_le_cnfLabel {a : FreundTerm} {as : List FreundTerm}
+        (has : FreundTermList_normal as) (ha : a ∈ as) :
+        GapTree.rootLabel (tree a) ≤ cnfLabel as := by
+  cases as with
+  | nil => simp at ha
+  | cons b bs =>
+    by_cases hb : b <f .Omega
+    · have haO : a <f .Omega := by
+       simp only [List.mem_cons] at ha
+       rcases ha with rfl | ha
+       · exact hb
+       · exact FreundTermList_normal_tail_lt_Omega has hb a ha
+      have hroot : GapTree.rootLabel (tree a) = GapTree.label0 :=
+        tree_rootLabel_eq_label0_of_lt_Omega haO
+      have hlabel : cnfLabel (b :: bs) = GapTree.label0 := by
+        simp [cnfLabel, hb]
+      rw [hroot, hlabel]
+    · have hlabel : cnfLabel (b :: bs) = GapTree.label1 :=
+        cnfLabel_cons_of_lt hb
+      rw [hlabel]; exact GapTree_le_label1 _
+
+theorem tree_mem_embeds_cnf {a : FreundTerm} {as : List FreundTerm} (has : FreundTermList_normal as)
+        (ha : a ∈ as) : GapTreeEmbeds (tree a) (tree (.cnf as)) := by
+  have hmem : tree a ∈ treeList as := by exact mem_treeList_iff.mpr ⟨a, ha, rfl⟩
+  obtain ⟨before, after, hlist⟩ := List.append_of_mem hmem
+  change GapTreeEmbeds (tree a) (.node (cnfLabel as) (treeList as))
+  rw [hlist]
+  exact GapTreeEmbeds_into_parent (tree_mem_rootLabel_le_cnfLabel has ha)
+-- The head tree is a proper subtree, in the node-count sense, of its CNF tree
+theorem tree_head_transComplexity_lt_cnf (a : FreundTerm) (as : List FreundTerm) :
+        GapTree.transComplexity (tree a) < GapTree.transComplexity (tree (.cnf (a :: as))) := by
+  simp [tree, treeList, GapTree.transComplexity, GapTree.transComplexityList]
+-- Adding a theta-wrapper strictly increases tree complexity
+theorem tree_transComplexity_lt_theta (a : FreundTerm) :
+        GapTree.transComplexity (tree a) < GapTree.transComplexity (tree (.theta a)) := by
+  simp [tree, GapTree.collapseWrap, GapTree.node0, GapTree.node1, GapTree.transComplexity,
+        GapTree.transComplexityList]
+
+mutual
+
+theorem tree_embedding_le {a b : FreundTerm} (ha : FreundTerm_normal a) (hb : FreundTerm_normal b)
+        (h : GapTreeEmbeds (tree a) (tree b)) : a ≤f b := by
+  cases a with
+  | Omega =>
+    cases b with
+    | Omega => exact Or.inr rfl
+    | theta b =>
+        exfalso
+        have hroot := GapTreeEmbeds_rootLabel_le h
+        have hbad : GapTree.label1 ≤ GapTree.label0 := by
+          simpa [tree] using hroot
+        change (1 : Nat) ≤ 0 at hbad
+        omega
+    | cnf bs =>
+        cases hb with
+        | cnf hbs hsingle =>
+          have hnode : GapTreeEmbeds (tree (.Omega : FreundTerm))
+                       (.node (cnfLabel bs) (treeList bs)) := by
+            simpa [tree] using h
+          rcases GapTreeEmbeds_to_node_cases hnode with hroot | hdesc
+          · obtain ⟨ss, hsource, hforest⟩ := hroot
+            have hrootEq := congrArg GapTree.rootLabel hsource
+            have hlabel : GapTree.label1 = cnfLabel bs := by
+              simpa [tree] using hrootEq
+            cases bs with
+            | nil =>
+                have hbad : GapTree.label1 = GapTree.label0 := by
+                  simpa [cnfLabel] using hlabel
+                have hv := congrArg Fin.val hbad
+                simp [GapTree.label0, GapTree.label1] at hv
+            | cons b bs =>
+                have hbNot : ¬ b <f .Omega := by
+                  intro hbO
+                  have h0 : cnfLabel (b :: bs) = GapTree.label0 := by
+                    simp [cnfLabel, hbO]
+                  have hbad : GapTree.label1 = GapTree.label0 :=
+                    hlabel.trans h0
+                  have hv := congrArg Fin.val hbad
+                  simp [GapTree.label0, GapTree.label1] at hv
+                have hOb : (.Omega : FreundTerm) ≤f b :=
+                  Omega_le_of_not_lt_Omega hbNot
+                exact Or.inl
+                  (FreundTerm_lt_of_le_of_lt
+                    hOb
+                    (FreundTerm_lt_cnf_cons_self b bs))
+          · obtain ⟨u, hu, hOu⟩ := hdesc
+            obtain ⟨c, hc, hcu⟩ := mem_treeList_iff.mp hu
+            subst u
+            have hcNormal : FreundTerm_normal c :=
+              FreundTermList_normal_mem hbs c hc
+            have hcCmplx : complexity c < complexity (.cnf bs) :=
+              complexity_lt_cnf_of_mem hc
+            have hOc : (.Omega : FreundTerm) ≤f c :=
+              tree_embedding_le
+                FreundTerm_normal.Omega
+                hcNormal
+                hOu
+            cases bs with
+            | nil => simp at hc
+            | cons b bs =>
+                have hcb : c ≤f b := by
+                  simp only [List.mem_cons] at hc
+                  rcases hc with rfl | hc
+                  · exact Or.inr rfl
+                  · exact
+                      FreundTermList_normal_tail_bounded hbs c hc
+                have hOb : (.Omega : FreundTerm) ≤f b :=
+                  FreundTerm_le_trans hOc hcb
+                exact Or.inl
+                  (FreundTerm_lt_of_le_of_lt
+                    hOb
+                    (FreundTerm_lt_cnf_cons_self b bs))
+  | theta a =>
+    cases ha with
+    | theta ha =>
+      cases b with
+      | Omega =>
+          exact Or.inl FreundTerm_lt.theta_Omega
+      | theta b =>
+          cases hb with
+          | theta hb =>
+            have hnode : GapTreeEmbeds (GapTree.collapseWrap (tree a))
+                         (.node GapTree.label0 [GapTree.node1 [tree b]]) := by
+              simpa [tree, GapTree.collapseWrap, GapTree.node0] using h
+            rcases GapTreeEmbeds_to_node_cases hnode with hroot | hdesc
+            · obtain ⟨ss, hsource, hforest⟩ := hroot
+              have hchildren := congrArg GapTree.children hsource
+              have hss : ss = [GapTree.node1 [tree a]] := by
+                simpa [ GapTree.collapseWrap, GapTree.node0] using hchildren.symm
+              subst ss
+              obtain ⟨u, hu, hinner⟩ :=
+                GapForestEmbeds_exists_of_mem
+                  (s := GapTree.node1 [tree a])
+                  hforest
+                  (by simp)
+              have hu' : u = GapTree.node1 [tree b] := by
+                simpa using hu
+              subst u
+              have harg : GapTreeEmbeds (tree a) (tree b) := by
+                apply GapTreeEmbeds_node1_singleton_cancel
+                simpa [GapTree.node1] using hinner
+              have hab : a ≤f b := tree_embedding_le ha hb harg
+              rcases hab with hab | hab
+              · apply Or.inl
+                apply FreundTerm_lt.theta_theta_forward hab
+                intro g hg
+                have hgNormal : FreundTerm_normal g := E_mem_normal ha hg
+                have hgCmplx : complexity g ≤ complexity a :=
+                  E_mem_complexity_le hg
+                have hgA : GapTreeEmbeds (tree g) (tree a) :=
+                  E_mem_tree_embeds ha hg
+                have hgB : GapTreeEmbeds (tree g) (tree b) :=
+                  GapTreeEmbeds_trans hgA harg
+                have hgRoot : GapTree.rootLabel (tree g) = GapTree.label0 :=
+                  E_mem_tree_rootLabel_eq_label0 ha hg
+                have hgThetaB : GapTreeEmbeds (tree g) (tree (.theta b)) := by
+                  simpa [tree] using
+                    GapTreeEmbeds_into_collapseWrap_of_root0
+                      hgRoot hgB
+                have hgLe : g ≤f .theta b :=
+                  tree_embedding_le hgNormal (FreundTerm_normal.theta hb) hgThetaB
+                rcases hgLe with hgLt | hgEq
+                · exact hgLt
+                · subst g
+                  have hsize := GapTreeEmbeds_transComplexity_le hgB
+                  have hstrict := tree_transComplexity_lt_theta b
+                  omega
+              · subst b
+                exact Or.inr rfl
+            · obtain ⟨u, hu, hsub⟩ := hdesc
+              have hu' : u = GapTree.node1 [tree b] := by
+                simpa using hu
+              subst u
+              have hnode1 :
+                  GapTreeEmbeds
+                    (GapTree.collapseWrap (tree a))
+                    (.node GapTree.label1 [tree b]) := by
+                simpa [GapTree.node1] using hsub
+              rcases GapTreeEmbeds_to_node_cases hnode1 with hroot1 | hdesc1
+              · obtain ⟨ss, hbad, hforest⟩ := hroot1
+                have hv := congrArg (fun t => (GapTree.rootLabel t).val) hbad
+                simp [GapTree.collapseWrap, GapTree.node0, GapTree.node1,
+                      GapTree.label0, GapTree.label1] at hv
+              · obtain ⟨v, hv, hintoB⟩ := hdesc1
+                have hv' : v = tree b := by simpa using hv
+                subst v
+                have hthetaB : GapTreeEmbeds (tree (.theta a)) (tree b) := by
+                  simpa [tree] using hintoB
+                obtain ⟨γ, hγE, hθγ⟩ := theta_tree_embeds_support ha hb hthetaB
+                have hγNormal : FreundTerm_normal γ := E_mem_normal hb hγE
+                have hγCmplx : complexity γ ≤ complexity b := E_mem_complexity_le hγE
+                have hle : (.theta a : FreundTerm) ≤f γ :=
+                  tree_embedding_le
+                    (FreundTerm_normal.theta ha)
+                    hγNormal
+                    hθγ
+                rcases hle with hlt | heq
+                · exact Or.inl
+                    (FreundTerm_lt.theta_theta_support_lt
+                      hγE hlt)
+                · subst γ
+                  exact Or.inl
+                    (FreundTerm_lt.theta_theta_support_eq
+                      hγE)
+      | cnf bs =>
+          cases hb with
+          | cnf hbs hsingle =>
+            obtain ⟨γ, hγE, hθγ⟩ :=
+              theta_tree_embeds_support
+                ha
+                (FreundTerm_normal.cnf hbs hsingle)
+                h
+            have hγNormal : FreundTerm_normal γ :=
+              E_mem_normal (FreundTerm_normal.cnf hbs hsingle) hγE
+            have hγE' := hγE
+            change γ ∈ EList bs at hγE'
+            have hγCmplx0 := EList_mem_complexity_lt hγE'
+            have hγCmplx : complexity γ < complexity (.cnf bs) := by
+              simpa [complexity] using hγCmplx0
+            have hθγLe : (.theta a : FreundTerm) ≤f γ :=
+              tree_embedding_le (FreundTerm_normal.theta ha) hγNormal hθγ
+            have hγTarget : γ <f .cnf bs :=
+              E_mem_lt_cnf (FreundTerm_normal.cnf hbs hsingle) hγE
+            exact Or.inl (FreundTerm_lt_of_le_of_lt hθγLe hγTarget)
+  | cnf as =>
+    cases ha with
+    | cnf has hsingle =>
+      cases b with
+      | Omega =>
+          have hnode : GapTreeEmbeds (tree (.cnf as)) (.node GapTree.label1 []) := by
+            simpa [tree, GapTree.node1] using h
+          rcases GapTreeEmbeds_to_node_cases hnode with hroot | hdesc
+          · obtain ⟨ss, hsource, hembed⟩ := hroot
+            have hss : ss = [] := by
+              cases ss with
+              | nil => rfl
+              | cons s ss =>
+                  have hsMem : s ∈ s :: ss := by simp
+                  obtain ⟨u, hu, _⟩ :=
+                    GapForestEmbeds_exists_of_mem hembed hsMem
+                  simp at hu
+            subst ss
+            cases as with
+            | nil =>
+                have hv := congrArg (fun t => (GapTree.rootLabel t).val) hsource
+                simp [tree, cnfLabel, GapTree.label0, GapTree.label1] at hv
+            | cons a as =>
+                have hchildren := congrArg GapTree.children hsource
+                simp [tree, treeList] at hchildren
+          · obtain ⟨u, hu, hsub⟩ := hdesc
+            simp at hu
+      | theta b =>
+          cases as with
+          | nil => exact Or.inl FreundTerm_lt.cnf_nil_theta
+          | cons a as =>
+              have haNormal : FreundTerm_normal a :=
+                FreundTermList_normal_head has
+              have haMem : a ∈ a :: as := by simp
+              have haCmplx : complexity a < complexity (.cnf (a :: as)) :=
+                complexity_lt_cnf_of_mem haMem
+              have haSource : GapTreeEmbeds (tree a) (tree (.cnf (a :: as))) :=
+                tree_mem_embeds_cnf has haMem
+              have haTarget : GapTreeEmbeds (tree a) (tree (.theta b)) :=
+                GapTreeEmbeds_trans haSource h
+              have haLe : a ≤f .theta b :=
+                tree_embedding_le haNormal hb haTarget
+              have hheadSize := tree_head_transComplexity_lt_cnf a as
+              have hwholeSize := GapTreeEmbeds_transComplexity_le h
+              have haLt : a <f .theta b := by
+                rcases haLe with hlt | heq
+                · exact hlt
+                · subst a
+                  omega
+              exact Or.inl (FreundTerm_lt.cnf_theta haLt)
+      | cnf bs =>
+          cases hb with
+          | cnf hbs hsingleB =>
+            have hnode : GapTreeEmbeds (tree (.cnf as)) (.node (cnfLabel bs) (treeList bs)) := by
+              simpa [tree] using h
+            rcases GapTreeEmbeds_to_node_cases hnode with hroot | hdesc
+            · obtain ⟨ss, hsource, hforest⟩ := hroot
+              have hchildren := congrArg GapTree.children hsource
+              have hss : ss = treeList as := by
+                simpa [tree] using hchildren.symm
+              subst ss
+              have hlist : as ≤fl bs := treeList_embedding_le has hbs hforest
+              rcases hlist with hlt | heq
+              · exact Or.inl (FreundTerm_lt.cnf_cnf hlt)
+              · subst bs
+                exact Or.inr rfl
+            · obtain ⟨u, hu, hsub⟩ := hdesc
+              obtain ⟨c, hc, hcu⟩ := mem_treeList_iff.mp hu
+              subst u
+              have hcNormal : FreundTerm_normal c :=
+                FreundTermList_normal_mem hbs c hc
+              have hcCmplx : complexity c < complexity (.cnf bs) :=
+                complexity_lt_cnf_of_mem hc
+              have hSourceC : (.cnf as : FreundTerm) ≤f c :=
+                tree_embedding_le
+                  (FreundTerm_normal.cnf has hsingle)
+                  hcNormal
+                  hsub
+              cases bs with
+              | nil => simp at hc
+              | cons b bs =>
+                  have hcb : c ≤f b := by
+                    simp only [List.mem_cons] at hc
+                    rcases hc with rfl | hc
+                    · exact Or.inr rfl
+                    · exact
+                        FreundTermList_normal_tail_bounded hbs c hc
+                  have hSourceHead : (.cnf as : FreundTerm) ≤f b :=
+                    FreundTerm_le_trans hSourceC hcb
+                  exact Or.inl
+                    (FreundTerm_lt_of_le_of_lt
+                      hSourceHead
+                      (FreundTerm_lt_cnf_cons_self
+                        b bs))
+
+
+termination_by
+  complexity a + complexity b
+decreasing_by
+  all_goals
+    subst_vars
+    try simp [complexity, complexityList] at hγCmplx
+    try simp [complexity, complexityList] at hcCmplx
+    try simp [complexity, complexityList] at haCmplx
+    simp [complexity, complexityList]
+    omega
+
+
+/-- Forest embedding of encoded normal CNF lists reflects the lexicographic order. -/
+theorem treeList_embedding_le {as bs : List FreundTerm} (has : FreundTermList_normal as)
+        (hbs : FreundTermList_normal bs) (h : GapForestEmbeds (treeList as) (treeList bs)) :
+        as ≤fl bs := by
+  cases as with
+  | nil =>
+      cases bs with
+      | nil => exact Or.inr rfl
+      | cons b bs => exact Or.inl FreundTermList_lt.nil
+  | cons a as =>
+      cases bs with
+      | nil =>
+          have haMem : tree a ∈ treeList (a :: as) := by
+            simp [treeList]
+          obtain ⟨u, hu, _⟩ := GapForestEmbeds_exists_of_mem h haMem
+          simp at hu
+      | cons b bs =>
+          have haNormal : FreundTerm_normal a := FreundTermList_normal_head has
+          have hbNormal : FreundTerm_normal b := FreundTermList_normal_head hbs
+          have hasTail : FreundTermList_normal as := FreundTermList_normal_tail has
+          have hbsTail : FreundTermList_normal bs := FreundTermList_normal_tail hbs
+          obtain ⟨c, hc, hac⟩ := treeList_embedding_head h
+          have hcNormal : FreundTerm_normal c :=
+            FreundTermList_normal_mem hbs c hc
+          have hcCmplx : complexity c < complexity (.cnf (b :: bs)) :=
+            complexity_lt_cnf_of_mem hc
+          have hacLe : a ≤f c := tree_embedding_le haNormal hcNormal hac
+          have hcb : c ≤f b := by
+            simp only [List.mem_cons] at hc
+            rcases hc with rfl | hc
+            · exact Or.inr rfl
+            · exact FreundTermList_normal_tail_bounded hbs c hc
+          have hab : a ≤f b := FreundTerm_le_trans hacLe hcb
+          rcases hab with hab | hab
+          · exact Or.inl (FreundTermList_lt.head hab)
+          · subst b
+            have hcancel : GapForestEmbeds (treeList as) (treeList bs) := by
+              change GapForestEmbeds (tree a :: treeList as) (tree a :: treeList bs) at h
+              exact GapForestEmbeds_cancel_head h
+            have htail : as ≤fl bs :=
+              treeList_embedding_le hasTail hbsTail hcancel
+            rcases htail with htail | htail
+            · exact Or.inl (FreundTermList_lt.tail htail)
+            · subst bs
+              exact Or.inr rfl
+termination_by complexityList as + complexityList bs
+decreasing_by
+  all_goals
+    subst_vars
+    try simp [complexity, complexityList] at hcCmplx
+    simp [complexity, complexityList]
+    omega
+end
+end FreundTerm
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
