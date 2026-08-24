@@ -3746,22 +3746,558 @@ end
 end FreundTerm
 
 
+instance GapTreeEmbeds_isPreorder : IsPreorder GapTree GapTreeEmbeds where
+  refl := GapTreeEmbeds_refl
+  trans := by intro a b c hab hbc; exact GapTreeEmbeds_trans hab hbc
 
+def GapTreeEmbeds_strict (s t : GapTree) : Prop :=
+  GapTreeEmbeds s t ∧ ¬ GapTreeEmbeds t s
 
+theorem GapTreeEmbeds_strict_wf_of_wqo (h : WellQuasiOrdered GapTreeEmbeds) :
+        WellFounded GapTreeEmbeds_strict := by
+  simpa [GapTreeEmbeds] using h.wellFounded
 
+def NormalFreundTerm_le (a b : NormalFreundTerm) : Prop := a.1 ≤f b.1
 
+instance NormalFreundTerm_le_isPreorder : IsPreorder NormalFreundTerm NormalFreundTerm_le where
+  refl := by intro a; exact Or.inr rfl
+  trans := by intro a b c hab hbc; exact FreundTerm.FreundTerm_le_trans hab hbc
 
+theorem NormalFreundTerm_le_wqo (hGap : WellQuasiOrdered GapTreeEmbeds) :
+        WellQuasiOrdered NormalFreundTerm_le := by
+  intro f
+  obtain ⟨i, j, hij, hTree⟩ := hGap (fun n => FreundTerm.tree (f n).1)
+  refine ⟨i, j, hij, ?_⟩
+  exact FreundTerm.tree_embedding_le (f i).2 (f j).2 hTree
 
+def NormalFreundTerm_strict (a b : NormalFreundTerm) : Prop :=
+  NormalFreundTerm_le a b ∧ ¬ NormalFreundTerm_le b a
 
+theorem NormalFreundTerm_strict_wf (hGap : WellQuasiOrdered GapTreeEmbeds) :
+    WellFounded NormalFreundTerm_strict := by
+  simpa [NormalFreundTerm_strict] using (NormalFreundTerm_le_wqo hGap).wellFounded
 
+def NormalFreundTerm_lt (a b : NormalFreundTerm) : Prop := a.1 <f b.1
 
+namespace FreundTerm
+theorem E_mem_is_theta {a g : FreundTerm} (hg : g ∈ FreundTerm.E a) : ∃ b, g = .theta b := by
+  cases a with
+  | Omega => simp [FreundTerm.E] at hg
+  | theta a => simp [FreundTerm.E] at hg; subst g; exact ⟨a, rfl⟩
+  | cnf as =>
+    change g ∈ FreundTerm.EList as at hg
+    obtain ⟨c, hc, hgc⟩ := EList_mem_exists hg
+    exact E_mem_is_theta hgc
 
+theorem E_mem_lt_theta {a g : FreundTerm} (hg : g ∈ FreundTerm.E a) : g <f .theta a := by
+  obtain ⟨b, rfl⟩ := E_mem_is_theta hg
+  exact FreundTerm_lt.theta_theta_support_eq hg
 
+mutual
+theorem FreundTerm_lt_irrefl (a : FreundTerm) : ¬ a <f a := by
+  intro h -- a <f a
+  cases a with
+  | Omega => cases h
+  | theta a =>
+    cases h with
+    | theta_theta_forward haa => exact FreundTerm_lt_irrefl a haa
+    -- ∀ g ∈ theta b, theta a < g → theta a < theta b
+    | @theta_theta_support_lt _ _ g hg hTg =>
+      have hgCmplx : FreundTerm.complexity g < FreundTerm.complexity (.theta a) :=
+        E_mem_complexity_lt_theta hg
+      have hgT : g <f (.theta a : FreundTerm) := E_mem_lt_theta hg
+      have hgg : g <f g := FreundTerm_lt_trans hgT hTg
+      exact FreundTerm_lt_irrefl g hgg
+    -- if theta a < E b then theta a < theta b
+    | theta_theta_support_eq hg =>
+      have hcmplx : FreundTerm.complexity (.theta a) < FreundTerm.complexity (.theta a) :=
+        E_mem_complexity_lt_theta hg
+      omega
+  | cnf as => cases h with
+              | cnf_cnf hlist =>
+                exact FreundTermList_lt_irrefl as hlist
+  termination_by FreundTerm.complexity a
+  decreasing_by
+    all_goals
+      subst_vars
+      try simp [FreundTerm.complexity, FreundTerm.complexityList] at *
+      try omega
+theorem FreundTermList_lt_irrefl (as : List FreundTerm) : ¬ FreundTermList_lt as as := by
+  intro h
+  cases as with
+  | nil => cases h
+  | cons a as =>
+    cases h with
+    | head haa => exact FreundTerm_lt_irrefl a haa
+    | tail htail => exact FreundTermList_lt_irrefl as htail
+  termination_by
+    FreundTerm.complexityList as
+  decreasing_by
+    all_goals
+      subst_vars
+      simp [FreundTerm.complexity,FreundTerm.complexityList]
+      try omega
+end
+end FreundTerm
 
+theorem NormalFreundTerm_lt_to_strict {a b : NormalFreundTerm} (hab : NormalFreundTerm_lt a b) :
+        NormalFreundTerm_strict a b := by
+  change a.1 <f b.1 at hab
+  constructor
+  · exact Or.inl hab
+  · intro hba
+    change b.1 ≤f a.1 at hba
+    rcases hba with hba | hba
+    · have haa : a.1 <f a.1 :=
+        FreundTerm.FreundTerm_lt_trans hab hba
+      exact FreundTerm.FreundTerm_lt_irrefl a.1 haa
+    · rw [hba] at hab
+      exact FreundTerm.FreundTerm_lt_irrefl a.1 hab
 
+theorem NormalFreundTerm_lt_wf (hGap : WellQuasiOrdered GapTreeEmbeds) :
+        WellFounded NormalFreundTerm_lt := by
+  apply (NormalFreundTerm_strict_wf hGap).mono
+  intro a b hab
+  exact NormalFreundTerm_lt_to_strict hab
 
+--========================================================================================
+-- Conversion of FreundTerm to our Notations
 
+namespace FreundTerm
+-- FreundTerm as its ω-CNF exponent list
+def cnfExponents : FreundTerm → List FreundTerm
+  | .Omega => [.Omega]
+  | .theta a => [.theta a]
+  | .cnf as => as
+def packCNF : List FreundTerm → FreundTerm
+  | [] => .cnf []
+  | [.Omega] => .Omega
+  | [.theta a] => .theta a
+  | [.cnf as] => .cnf [.cnf as]
+  | a :: b :: rest => .cnf (a :: b :: rest)
+@[simp]
+theorem cnfExponents_packCNF (as : List FreundTerm) : cnfExponents (packCNF as) = as := by
+  cases as with
+  | nil => rfl
+  | cons a rest =>
+    cases rest with
+    | nil =>
+      cases a with
+      | Omega => simp [packCNF, cnfExponents]
+      | theta a => simp [packCNF, cnfExponents]
+      | cnf cs => rfl
+    | cons b bs => simp [packCNF, cnfExponents]
+@[simp]
+theorem packCNF_cnfExponents_of_normal {a : FreundTerm} (ha : FreundTerm_normal a) :
+        packCNF (cnfExponents a) = a := by
+  cases a with
+  | Omega => rfl
+  | theta a => rfl
+  | cnf as =>
+    cases ha with
+    | cnf has hsingle =>
+      cases as with
+      | nil => rfl
+      | cons a rest =>
+        cases rest with
+        | nil => have hok : FreundSingletonOK a := hsingle a rfl
+                 cases a with
+                 | Omega => simp [FreundSingletonOK] at hok
+                 | theta b => simp [FreundSingletonOK] at hok
+                 | cnf bs => simp [cnfExponents, packCNF]
+        | cons b rest => simp [cnfExponents, packCNF]
+end FreundTerm
+namespace BHToFreund
+-- Translate principal to Freund, assuming we know how to omegaTerm with F
+def principalWith (F : omegaTerm → FreundTerm) : principal → FreundTerm
+  | .psi a => .theta (F a)
+def principalListWith (F : omegaTerm → FreundTerm) : List principal → List FreundTerm
+  | [] => []
+  | p :: ps => principalWith F p :: principalListWith F ps
+def countableWith (F : omegaTerm → FreundTerm) : countableOrd → FreundTerm
+  | .sum ps => FreundTerm.packCNF (principalListWith F ps)
+@[simp]
+theorem principalWith_psi (F : omegaTerm → FreundTerm) (a : omegaTerm) :
+        principalWith F (.psi a) = .theta (F a) := by rfl
+@[simp]
+theorem principalListWith_nil (F : omegaTerm → FreundTerm) :
+        principalListWith F [] = [] := by rfl
+@[simp]
+theorem principalListWith_cons (F : omegaTerm → FreundTerm) (p : principal) (ps : List principal) :
+        principalListWith F (p :: ps) = principalWith F p :: principalListWith F ps := by rfl
+@[simp]
+theorem countableWith_sum (F : omegaTerm → FreundTerm) (ps : List principal) :
+        countableWith F (.sum ps) = FreundTerm.packCNF (principalListWith F ps) := by rfl
+@[simp]
+theorem countableWith_zero (F : omegaTerm → FreundTerm) :
+        countableWith F countableOrd.zero = .cnf [] := by
+  simp [countableOrd.zero, countableWith, principalListWith, FreundTerm.packCNF]
+@[simp]
+theorem countableWith_ofPrincipal (F : omegaTerm → FreundTerm) (p : principal) :
+        countableWith F (countableOrd.ofPrincipal p) = principalWith F p := by
+  cases p with
+  | psi a =>
+      simp [countableOrd.ofPrincipal, countableWith, principalListWith,
+            principalWith, FreundTerm.packCNF]
+@[simp]
+theorem cnfExponents_countableWith (F : omegaTerm → FreundTerm) (ps : List principal) :
+        FreundTerm.cnfExponents (countableWith F (.sum ps)) = principalListWith F ps := by
+  simp [countableWith]
+end BHToFreund
+namespace FreundTerm
+-- Fruend's ordinal addition
+-- Keep initial segment whose exponents are at least b
+noncomputable def keepGE (b : FreundTerm) (as : List FreundTerm) : List FreundTerm := by
+  classical
+  exact match as with
+        | [] => []
+        | a :: rest => if b ≤f a then a :: keepGE b rest
+                       else []
+-- For (ω^α + ω^β) + ω^γ drops the final exponents of the left side with <c
+noncomputable def cnfAdd (a b : FreundTerm) : FreundTerm := by
+  classical
+  exact
+    match cnfExponents b with
+    | [] => a
+    | c :: cs => packCNF (keepGE c (cnfExponents a) ++ (c :: cs))
+-- Freund's ordinal multiplication
+-- If a = ω^α₀ + ... + ω^{α_n} then Ωa = ω^{Ω+α₀} + ... + ω^{Ω+α_n}
+noncomputable def OmegaMul (a : FreundTerm) : FreundTerm :=
+  packCNF ((cnfExponents a).map (fun e => cnfAdd .Omega e))
+noncomputable def shiftExponents (base beta : FreundTerm) :
+    List FreundTerm := (cnfExponents beta).map (fun p => cnfAdd base p)
+end FreundTerm
+-- The actual translation from BH notation to FreundTerm
+namespace BHToFreund
+mutual
+noncomputable def countable : _root_.countableOrd → FreundTerm
+  | .sum ps => FreundTerm.packCNF (principalList ps)
+noncomputable def principal : _root_.principal → FreundTerm
+  | .psi a => .theta (omega a)
+noncomputable def principalList : List _root_.principal → List FreundTerm
+  | [] => []
+  | p :: ps => principal p :: principalList ps
+noncomputable def omega : _root_.omegaTerm → FreundTerm
+  | .zero => .cnf []
+  | .omegaNF alpha beta gamma =>
+      let base := FreundTerm.OmegaMul (omega alpha)
+      FreundTerm.packCNF (FreundTerm.shiftExponents base (countable beta)
+          ++ FreundTerm.cnfExponents (omega gamma))
+end
+@[simp]
+theorem countable_sum (ps : List _root_.principal) :
+  countable (.sum ps) = FreundTerm.packCNF (principalList ps) := by rfl
+@[simp]
+theorem principal_psi (a : _root_.omegaTerm) : principal (.psi a) = .theta (omega a) := by rfl
+@[simp]
+theorem principalList_nil : principalList [] = [] := by rfl
+@[simp]
+theorem principalList_cons (p : _root_.principal) (ps : List _root_.principal) :
+        principalList (p :: ps) = principal p :: principalList ps := by rfl
+@[simp]
+theorem omega_zero : omega (.zero : _root_.omegaTerm) = (.cnf [] : FreundTerm) := by rfl
+@[simp]
+theorem omega_omegaNF (alpha gamma : _root_.omegaTerm) (beta : _root_.countableOrd) :
+        omega (.omegaNF alpha beta gamma) =
+        FreundTerm.packCNF (FreundTerm.shiftExponents (FreundTerm.OmegaMul (omega alpha))
+          (countable beta)
+          ++
+          FreundTerm.cnfExponents (omega gamma)) := by rfl
+@[simp]
+theorem countable_zero : countable _root_.countableOrd.zero = (.cnf [] : FreundTerm) := by
+  simp [_root_.countableOrd.zero, countable, principalList, FreundTerm.packCNF]
+@[simp]
+theorem countable_ofPrincipal (p : _root_.principal) :
+    countable (_root_.countableOrd.ofPrincipal p) = principal p := by
+  cases p with
+  | psi a =>
+      simp [_root_.countableOrd.ofPrincipal, countable, principalList, principal,
+            FreundTerm.packCNF]
+@[simp]
+theorem cnfExponents_countable_sum (ps : List _root_.principal) :
+        FreundTerm.cnfExponents (countable (.sum ps)) = principalList ps := by
+  simp [countable]
+-- BH equality and LEAN equality
+mutual
+theorem countableOrd_eq_to_eq {a b : countableOrd} (h : a=cb) : a = b := by
+  cases h with
+  | sum hList =>
+      exact congrArg countableOrd.sum (principalList_eq_to_eq hList)
+theorem principal_eq_to_eq {p q : _root_.principal} (h : p =p q) : p = q := by
+  cases h with
+  | psi hArg =>
+      exact congrArg principal.psi (omegaTerm_eq_to_eq hArg)
+theorem principalList_eq_to_eq {ps qs : List _root_.principal} (h : principalList_eq ps qs) :
+        ps = qs := by
+  cases h with
+  | nil => rfl
+  | cons hHead hTail =>
+      rw [principal_eq_to_eq hHead, principalList_eq_to_eq hTail]
+theorem omegaTerm_eq_to_eq {a b : omegaTerm} (h : a =o b) : a = b := by
+  cases h with
+  | zero => rfl
+  | omegaNF hAlpha hBeta hGamma =>
+      rw [omegaTerm_eq_to_eq hAlpha, countableOrd_eq_to_eq hBeta, omegaTerm_eq_to_eq hGamma]
+end
+-- Custom equality of countable ordinals is preserved by the translation to Freund terms.
+theorem countable_eq_map_eq {a b : countableOrd} (h : a=cb) : countable a = countable b := by
+  rw [countableOrd_eq_to_eq h]
+-- Custom equality of principal terms is preserved by the translation to Freund terms.
+theorem principal_eq_map_eq {p q : _root_.principal} (h : p=pq) : principal p = principal q := by
+  rw [principal_eq_to_eq h]
+-- Custom equality of principal lists is preserved by the translation to Freund-term lists.
+theorem principalList_eq_map_eq {ps qs : List _root_.principal} (h : principalList_eq ps qs) :
+        principalList ps = principalList qs := by
+  rw [principalList_eq_to_eq h]
+-- Custom equality of Ω-terms is preserved by the translation to Freund terms.
+theorem omega_eq_map_eq {a b : omegaTerm} (h : a=ob) : omega a = omega b := by
+  rw [omegaTerm_eq_to_eq h]
+end BHToFreund
+namespace FreundTerm
+theorem packCNF_normal {as : List FreundTerm} (has : FreundTermList_normal as) :
+        FreundTerm_normal (packCNF as) := by
+  cases as with
+  | nil =>
+    have h : FreundTerm_normal (.cnf []) := by
+        apply FreundTerm_normal.cnf
+        · exact FreundTermList_normal.nil
+        · intro x hx
+          simp at hx
+    simpa [packCNF] using h
+  | cons a rest =>
+    cases rest with
+      | nil =>
+        cases has with
+        | single ha =>
+          cases a with
+          | Omega => simpa [packCNF] using ha
+          | theta b => simpa [packCNF] using ha
+          | cnf bs =>
+            have h : FreundTerm_normal (.cnf [(.cnf bs : FreundTerm)]) := by
+              apply FreundTerm_normal.cnf
+              · exact FreundTermList_normal.single ha
+              · intro x hx
+                have hx' : x = (.cnf bs : FreundTerm) := by
+                  simpa using hx.symm
+                subst x
+                simp [FreundSingletonOK]
+            simpa [packCNF] using h
+      | cons b rest =>
+        have h : FreundTerm_normal (.cnf (a :: b :: rest)) := by
+          apply FreundTerm_normal.cnf
+          · exact has
+          · intro x hx; simp at hx
+        simpa [packCNF] using h
+end FreundTerm
+namespace BHToFreund
+@[simp]
+theorem principalList_eq_map (ps : List _root_.principal) :
+        principalList ps = ps.map principal := by
+  induction ps with
+  | nil => rfl
+  | cons p ps ih => simp [principalList, ih]
+theorem principalList_normal_map_of (hPrincipalNormal : ∀ {p : _root_.principal},
+        principal_normal p → FreundTerm_normal (principal p))
+        (hPrincipalLe : ∀ {p q : _root_.principal}, p≤pq → principal p ≤f principal q)
+        {ps : List _root_.principal} (hps : principalList_normal ps) :
+        FreundTermList_normal (principalList ps) := by
+  cases ps with
+  | nil => exact FreundTermList_normal.nil
+  | cons p ps =>
+      cases ps with
+      | nil =>
+          -- source list is [p]
+          cases hps with
+          | singleton hp =>
+              simp only [principalList]
+              exact FreundTermList_normal.single
+                (hPrincipalNormal hp)
+      | cons q qs =>
+          -- source list is p :: q :: qs
+          cases hps with
+          | cons hp htail hpq =>
+              simp only [principalList]
+              apply FreundTermList_normal.cons
+              · exact hPrincipalNormal hp
+              · exact principalList_normal_map_of
+                  hPrincipalNormal
+                  hPrincipalLe
+                  htail
+              · intro t ht
+                have ht' : t ∈ principalList (q :: qs) := by
+                  simpa only [principalList] using ht
+                rw [principalList_eq_map] at ht'
+                obtain ⟨r, hr, hrt⟩ := List.mem_map.mp ht'
+                subst t
+                have hwhole : principalList_normal (p :: q :: qs) :=
+                  principalList_normal.cons hp htail hpq
+                have hrp : r ≤p p :=
+                  principalList_normal_tail_bounded hwhole r hr
+                exact hPrincipalLe hrp
 
+theorem countable_normal_map_of (hPrincipalNormal : ∀ {p : _root_.principal}, principal_normal p →
+        FreundTerm_normal (principal p))
+        (hPrincipalLe : ∀ {p q : _root_.principal}, p≤pq → principal p ≤f principal q)
+        {a : _root_.countableOrd} (ha : countableOrd_normal a) :
+        FreundTerm_normal (countable a) := by
+  cases ha with
+  | sum hps =>
+      rw [countable_sum]
+      apply FreundTerm.packCNF_normal
+      exact principalList_normal_map_of
+        hPrincipalNormal
+        hPrincipalLe
+        hps
+-- if normal Ω-terms map to normal Freund terms, then normal principals automatically do too
+theorem principal_normal_map_of
+        (hOmegaNormal : ∀ {a : _root_.omegaTerm}, omegaTerm_normal a → FreundTerm_normal (omega a))
+        {p : _root_.principal} (hp : principal_normal p) :
+        FreundTerm_normal (principal p) := by
+  cases hp with
+  | psi harg hcoeff =>
+      rw [principal_psi]
+      exact FreundTerm_normal.theta (hOmegaNormal harg)
+-- If strict principal order maps to <f, then weak principal order maps to ≤f.
+theorem principal_le_map_of_lt
+        (hPrincipalLt : ∀ {p q : _root_.principal}, p<pq → principal p <f principal q)
+        {p q : _root_.principal} (h : p≤pq) :
+        principal p ≤f principal q := by
+  rcases h with hlt | heq
+  · exact Or.inl (hPrincipalLt hlt)
+  · exact Or.inr (principal_eq_map_eq heq)
+/- Normal countable ordinals map to normal Freund terms once Ω-term normality and strict
+   principal-order preservation are known. -/
+theorem countable_normal_map_of_omega_lt
+        (hOmegaNormal : ∀ {a : _root_.omegaTerm}, omegaTerm_normal a → FreundTerm_normal (omega a))
+        (hPrincipalLt : ∀ {p q : _root_.principal}, p<pq → principal p <f principal q)
+        {a : _root_.countableOrd} (ha : countableOrd_normal a) :
+        FreundTerm_normal (countable a) := by
+  apply countable_normal_map_of
+  · intro p hp
+    exact principal_normal_map_of hOmegaNormal hp
+  · intro p q hpq
+    exact principal_le_map_of_lt hPrincipalLt hpq
+  · exact ha
+/- Strict comparison of our principal list is preserved by the Freund trenalation, assuming
+   strict prinicpal comparison is preserved. -/
+theorem principalList_lt_map_of
+        (hPrincipalLt : ∀ {p q : _root_.principal}, p<pq → principal p <f principal q)
+        {ps qs : List _root_.principal} (h : principalList_lt ps qs) :
+        FreundTermList_lt (principalList ps) (principalList qs) := by
+  cases h with
+  | nil => simp only [principalList]; exact FreundTermList_lt.nil
+  | head hpq => simp only [principalList]
+                exact FreundTermList_lt.head (hPrincipalLt hpq)
+  | tail hpq htail =>
+      simp only [principalList]
+      have hhead : principal _ = principal _ := principal_eq_map_eq hpq
+      rw [hhead]
+      exact FreundTermList_lt.tail (principalList_lt_map_of hPrincipalLt htail)
+-- A strict comparison of source principal lists remains strict
+-- after packing their translated lists into canonical Freund terms.
+theorem principalList_pack_lt_map_of
+        (hPrincipalLt : ∀ {p q : _root_.principal}, p<pq → principal p <f principal q)
+        {ps qs : List _root_.principal} (h : principalList_lt ps qs) :
+        FreundTerm.packCNF (principalList ps) <f FreundTerm.packCNF (principalList qs) := by
+  cases h with
+  | @nil p ps =>
+    cases p with
+    | psi a =>
+      cases ps with
+      -- [] < [ψ(a)]
+      -- becomes 0 < θ(F(a))
+      | nil =>
+        simpa only [principalList, principal, FreundTerm.packCNF] using
+          (FreundTerm_lt.cnf_nil_theta (b := omega a))
+      -- [] < ψ(a) :: q :: qs
+      -- both sides are now genuine CNFs
+      | cons q qs =>
+        have h0 : (.cnf [] : FreundTerm) <f
+                    .cnf (principal (.psi a) :: principal q :: principalList qs) :=
+          FreundTerm_lt.cnf_cnf FreundTermList_lt.nil
+        simpa only [principalList, FreundTerm.packCNF ] using h0
+  -- p < q at the first differing position
+  | @head p q ps qs hpq =>
+    have hpqF : principal p <f principal q := hPrincipalLt hpq
+    cases p with
+    | psi a =>
+      cases q with
+      | psi b =>
+        change (.theta (omega a) : FreundTerm) <f .theta (omega b) at hpqF
+        cases ps with
+        | nil =>
+          cases qs with
+          -- [p] < [q]
+          | nil =>
+            simpa only [principalList, principal, FreundTerm.packCNF] using hpqF
+          -- [p] < q :: r :: rs
+          | cons r rs =>
+            have hout : (.theta (omega a) : FreundTerm) <f
+                         .cnf ((.theta (omega b) : FreundTerm) :: principal r ::
+                         principalList rs) := FreundTerm_lt.theta_cnf_lt hpqF
+            simpa only [ principalList, principal, FreundTerm.packCNF] using hout
+        | cons r rs =>
+          cases qs with
+          -- p :: r :: rs < [q]
+          | nil =>
+            have hout : (.cnf ((.theta (omega a) : FreundTerm) :: principal r ::
+                          principalList rs)) <f .theta (omega b) :=
+                    FreundTerm_lt.cnf_theta hpqF
+            simpa only [principalList, principal, FreundTerm.packCNF] using hout
+              -- both have at least two elements
+          | cons s ss =>
+            have hlist : FreundTermList_lt ((.theta (omega a) : FreundTerm) ::
+                         principal r :: principalList rs) ((.theta (omega b) : FreundTerm) ::
+                         principal s :: principalList ss) := FreundTermList_lt.head hpqF
+            have hout : (.cnf ((.theta (omega a) : FreundTerm) :: principal r ::
+                        principalList rs)) <f
+                        .cnf ((.theta (omega b) : FreundTerm) :: principal s ::
+                        principalList ss) :=
+              FreundTerm_lt.cnf_cnf hlist
+            simpa only [principalList, principal, FreundTerm.packCNF ] using hout
+  -- equal heads, comparison occurs later
+  | @tail p q ps qs hpq htail =>
+    have hfull : FreundTermList_lt (principalList (p :: ps)) (principalList (q :: qs)) :=
+      principalList_lt_map_of hPrincipalLt (principalList_lt.tail hpq htail)
+    have hpqLean : p = q := principal_eq_to_eq hpq
+    subst q
+    cases p with
+    | psi a =>
+      cases ps with
+      -- left side is the singleton [ψ(a)]
+      | nil =>
+        cases qs with
+        -- impossible: [] < []
+        | nil =>
+          cases htail
+          -- [ψ(a)] < ψ(a) :: r :: rs
+          | cons r rs =>
+            have hout : (.theta (omega a) : FreundTerm) <f
+                        .cnf ((.theta (omega a) : FreundTerm) ::
+                         principal r :: principalList rs) :=
+              FreundTerm_lt.theta_cnf_eq
+            simpa only [principalList, principal, FreundTerm.packCNF] using hout
+          -- left side has at least two entries
+       | cons r rs =>
+         cases qs with
+         -- impossible: nonempty < []
+         | nil =>
+           cases htail
+           -- both become genuine CNFs
+           | cons s ss =>
+             have hout : (.cnf ((.theta (omega a) : FreundTerm) ::
+                         principal r :: principalList rs)) <f
+                         .cnf ((.theta (omega a) : FreundTerm) ::
+                         principal s :: principalList ss) :=
+               FreundTerm_lt.cnf_cnf hfull
+             simpa only [principalList, principal, FreundTerm.packCNF] using hout
+theorem countable_lt_map_of
+        (hPrincipalLt : ∀ {p q : _root_.principal}, p<pq → principal p <f principal q)
+        {a b : _root_.countableOrd} (h : a<cb) : countable a <f countable b := by
+  cases h with
+  | sum hlist =>
+      exact principalList_pack_lt_map_of hPrincipalLt hlist
+end BHToFreund
 
 
 --========================================================================================
