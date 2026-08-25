@@ -4298,8 +4298,364 @@ theorem countable_lt_map_of
   | sum hlist =>
       exact principalList_pack_lt_map_of hPrincipalLt hlist
 end BHToFreund
+namespace FreundTerm
+-- EList distributes over concatenation of CNF exponent lists.
+@[simp]
+theorem EList_append (as bs : List FreundTerm) :
+        EList (as ++ bs) = EList as ++ EList bs := by
+  induction as with
+  | nil => rfl
+  | cons a as ih => simp [EList, ih, List.append_assoc]
+-- Packing an exponent list into canonical Freund syntax does not
+-- change its set/list of critical θ-terms.
+@[simp]
+theorem E_packCNF (as : List FreundTerm) : E (packCNF as) = EList as := by
+  cases as with
+  | nil => rfl
+  | cons a rest =>
+    cases rest with
+    | nil =>
+      cases a with
+      | Omega => simp [packCNF, E, EList]
+      | theta b => simp [packCNF, E, EList]
+      | cnf bs => simp [packCNF, E, EList]
+    | cons b bs =>
+      simp [packCNF, E, EList, List.append_assoc]
+theorem mem_EList_append_iff {as bs : List FreundTerm} {g : FreundTerm} :
+        g ∈ EList (as ++ bs) ↔ g ∈ EList as ∨ g ∈ EList bs := by
+  rw [EList_append]; simp
+@[simp]
+theorem EList_cnfExponents (a : FreundTerm) : EList (cnfExponents a) = E a := by
+  cases a with
+  | Omega => rfl
+  | theta a => simp [cnfExponents, EList, E]
+  | cnf as => rfl
+-- Adding Ω on the left does not introduce any new critical θ-terms.
+@[simp]
+theorem E_cnfAdd_Omega (b : FreundTerm) : E (cnfAdd .Omega b) = E b := by
+  classical
+  cases h : cnfExponents b with
+  | nil =>
+    calc
+    E (cnfAdd .Omega b) = E (.Omega : FreundTerm) := by
+      simp [cnfAdd, h]
+    _ = [] := by  rfl
+    _ = EList (cnfExponents b) := by rw [h]; rfl
+    _ = E b := by exact EList_cnfExponents b
+  | cons c cs =>
+    have hkeep : EList (keepGE c (cnfExponents (.Omega : FreundTerm))) = [] := by
+      by_cases hc : c ≤f .Omega
+      · simp [cnfExponents, keepGE, EList, E, hc]
+      · simp [cnfExponents, keepGE, EList, hc]
+    calc
+      E (cnfAdd .Omega b) =
+      EList (keepGE c (cnfExponents (.Omega : FreundTerm)) ++ (c :: cs)) := by
+        simp [cnfAdd, h, E_packCNF]
+      _ = EList (c :: cs) := by
+            rw [EList_append, hkeep]
+            simp
+      _ = EList (cnfExponents b) := by rw [h]
+      _ = E b := by exact EList_cnfExponents b
+-- Applying Ω + _ to every exponent preserves the total critical-term list.
+@[simp]
+theorem EList_map_cnfAdd_Omega (as : List FreundTerm) :
+        EList (as.map (fun e => cnfAdd .Omega e)) = EList as := by
+  induction as with
+  | nil => rfl
+  | cons a as ih => simp [EList, ih]
+-- Multiplication by Ω preserves the critical θ-terms.
+@[simp]
+theorem E_OmegaMul (a : FreundTerm) : E (OmegaMul a) = E a := by
+  simp [OmegaMul]
+-- Every critical term of base + a comes either from base or from a.
+theorem E_cnfAdd_subset {base a g : FreundTerm} (hg : g ∈ E (cnfAdd base a)) :
+        g ∈ E base ∨ g ∈ E a := by
+  classical
+  have hkeep : ∀ (c : FreundTerm) (as : List FreundTerm),
+      g ∈ EList (keepGE c as) → g ∈ EList as := by
+    intro c as
+    induction as with
+    | nil => simp [keepGE, EList]
+    | cons d ds ih =>
+      by_cases hcd : c ≤f d
+      · intro hmem
+        simp only [keepGE, hcd, ↓reduceIte, EList, List.mem_append] at hmem ⊢
+        rcases hmem with hd | hds
+        · exact Or.inl hd
+        · exact Or.inr (ih hds)
+      · simp [keepGE, EList, hcd]
+  cases h : cnfExponents a with
+  | nil =>
+    left
+    simpa [cnfAdd, h] using hg
+  | cons c cs =>
+    have hg' : g ∈ EList (keepGE c (cnfExponents base) ++ (c :: cs)) := by
+      simpa [cnfAdd, h] using hg
+    rw [mem_EList_append_iff] at hg'
+    rcases hg' with hgbase | hga
+    · left
+      rw [← EList_cnfExponents base]
+      exact hkeep c (cnfExponents base) hgbase
+    · right
+      rw [← EList_cnfExponents a, h]
+      exact hga
+-- Every critical term of the right summand survives ordinal addition.
+theorem E_right_mem_cnfAdd {base a g : FreundTerm} (hg : g ∈ E a) :
+        g ∈ E (cnfAdd base a) := by
+  classical
+  cases h : cnfExponents a with
+  | nil =>
+    have : g ∈ EList (cnfExponents a) := by
+      simpa using hg
+    rw [h] at this
+    simp [EList] at this
+  | cons c cs =>
+    have hg' : g ∈ EList (c :: cs) := by
+      rw [← h]
+      simpa using hg
+    have : g ∈ EList (keepGE c (cnfExponents base) ++ (c :: cs)) :=
+      mem_EList_append_iff.mpr (Or.inr hg')
+    simpa [cnfAdd, h] using this
+-- Critical terms of shifted exponents come from the base or the coefficient.
+theorem EList_shiftExponents_subset {base beta g : FreundTerm}
+        (hg : g ∈ EList (shiftExponents base beta)) :
+        g ∈ E base ∨ g ∈ E beta := by
+  have hmap : ∀ (as : List FreundTerm),
+      g ∈ EList (as.map (fun p => cnfAdd base p)) →
+        g ∈ E base ∨ g ∈ EList as := by
+    intro as
+    induction as with
+    | nil => simp [EList]
+    | cons a as ih =>
+      simp only [List.map_cons, EList, List.mem_append] at *
+      intro h
+      rcases h with ha | has
+      · rcases E_cnfAdd_subset ha with hbase | ha
+        · exact Or.inl hbase
+        · exact Or.inr (Or.inl ha)
+      · rcases ih has with hbase | has
+        · exact Or.inl hbase
+        · exact Or.inr (Or.inr has)
+  rcases hmap (cnfExponents beta) (by simpa [shiftExponents] using hg) with
+    hbase | hbeta
+  · exact Or.inl hbase
+  · exact Or.inr (by simpa using hbeta)
+end FreundTerm
 
+namespace BHToFreund
+-- A source principal in a countable ordinal occurs as an exponent of its translation.
+theorem principal_mem_countable_exponents {p : _root_.principal}
+        {ps : List _root_.principal} (hp : p ∈ ps) :
+        principal p ∈ FreundTerm.cnfExponents (countable (.sum ps)) := by
+  rw [cnfExponents_countable_sum, principalList_eq_map]
+  exact List.mem_map.mpr ⟨p, hp, rfl⟩
+-- Every exponent of a translated countable ordinal comes from a source principal.
+theorem countable_exponent_exists_principal {c : _root_.countableOrd} {g : FreundTerm}
+        (hg : g ∈ FreundTerm.cnfExponents (countable c)) :
+        ∃ p ps, c = .sum ps ∧ p ∈ ps ∧ g = principal p := by
+  cases c with
+  | sum ps =>
+    rw [cnfExponents_countable_sum, principalList_eq_map] at hg
+    obtain ⟨p, hp, rfl⟩ := List.mem_map.mp hg
+    exact ⟨p, ps, rfl, hp, rfl⟩
+-- Every critical term of omega a comes from a principal component of a source coefficient.
+theorem E_omega_exists_coefficient {a : _root_.omegaTerm} {g : FreundTerm}
+        (hg : g ∈ FreundTerm.E (omega a)) :
+        ∃ c, c ∈ omegaTerm.coefficients a ∧
+        ∃ p ps, c = .sum ps ∧ p ∈ ps ∧ g = principal p := by
+  cases a with
+  | zero => simp [omega_zero, FreundTerm.E, FreundTerm.EList] at hg
+  | omegaNF alpha beta gamma =>
+    rw [omega_omegaNF, FreundTerm.E_packCNF,
+        FreundTerm.EList_append] at hg
+    simp only [List.mem_append] at hg
+    rcases hg with hshift | hgamma
+    · rcases FreundTerm.EList_shiftExponents_subset hshift with halpha | hbeta
+      · rw [FreundTerm.E_OmegaMul] at halpha
+        obtain ⟨c, hc, p, ps, hcform, hp, hgp⟩ :=
+          E_omega_exists_coefficient halpha
+        exact ⟨c, by simp [omegaTerm.coefficients, hc], p, ps, hcform, hp, hgp⟩
+      · rw [← FreundTerm.EList_cnfExponents] at hbeta
+        obtain ⟨e, he, hge⟩ := FreundTerm.EList_mem_exists hbeta
+        obtain ⟨p, ps, rfl, hp, rfl⟩ := countable_exponent_exists_principal he
+        have hgp : g = principal p := by
+          cases p with
+          | psi d => simpa [principal, FreundTerm.E] using hge
+        exact ⟨.sum ps, by simp [omegaTerm.coefficients], p, ps, rfl, hp, hgp⟩
+    · rw [FreundTerm.EList_cnfExponents] at hgamma
+      obtain ⟨c, hc, p, ps, hcform, hp, hgp⟩ :=
+        E_omega_exists_coefficient hgamma
+      exact ⟨c, by simp [omegaTerm.coefficients, hc], p, ps, hcform, hp, hgp⟩
+  termination_by omegaTerm_cmplx a
+  decreasing_by
+    all_goals
+      subst_vars
+      simp [omegaTerm_cmplx] <;> omega
+-- Every principal component of a source coefficient occurs in E of the translated omega term.
+theorem coefficient_principal_mem_E_omega {a : _root_.omegaTerm}
+        {c : _root_.countableOrd} {p : _root_.principal}
+        {ps : List _root_.principal}
+        (ha : omegaTerm_normal a)
+        (hc : c ∈ omegaTerm.coefficients a)
+        (hcform : c = .sum ps)
+        (hp : p ∈ ps) :
+        principal p ∈ FreundTerm.E (omega a) := by
+  sorry
+-- A principal component of a normal countable ordinal is at most the whole ordinal.
+theorem principal_component_le_countable {p : _root_.principal}
+        {ps : List _root_.principal} (hps : principalList_normal ps) (hp : p ∈ ps) :
+        countableOrd.ofPrincipal p ≤c countableOrd.sum ps := by
+  cases ps with
+  | nil => simp at hp
+  | cons q qs =>
+    simp only [List.mem_cons] at hp
+    have hpq : p ≤p q := by
+      rcases hp with rfl | hp
+      · exact Or.inr (principal_eq_refl p)
+      · exact principalList_normal_tail_bounded hps p hp
+    change countableOrd.sum [p] ≤c countableOrd.sum (q :: qs)
+    rcases hpq with hpq | hpq
+    · exact Or.inl (countableOrd_lt.sum (principalList_lt.head hpq))
+    · cases qs with
+      | nil =>
+        exact Or.inr (countableOrd_eq.sum
+          (principalList_eq.cons hpq principalList_eq.nil))
+      | cons r rs =>
+        exact Or.inl (countableOrd_lt.sum
+          (principalList_lt.tail hpq principalList_lt.nil))
+-- If a coefficient is below ψ(b), each principal component is below ψ(b).
+theorem coefficient_component_lt_principal {p : _root_.principal}
+        {ps : List _root_.principal} {b : _root_.omegaTerm}
+        (hps : principalList_normal ps)
+        (h : countableOrd.sum ps <c countableOrd.ofPrincipal (.psi b))
+        (hp : p ∈ ps) :
+        p <p .psi b := by
+  change countableOrd.sum ps <c countableOrd.sum [.psi b] at h
+  cases h with
+  | sum hlist =>
+    cases ps with
+    | nil => simp at hp
+    | cons q qs =>
+      cases hlist with
+      | head hqb =>
+        simp only [List.mem_cons] at hp
+        rcases hp with rfl | hp
+        · exact hqb
+        · have hpq := principalList_normal_tail_bounded hps p hp
+          rcases hpq with hpq | hpq
+          · exact principal_lt_trans hpq hqb
+          · exact principal_eq_lt_trans hpq hqb
+      | tail _ htail => cases htail
+-- If ψ(a) is at most a countable coefficient, some principal component dominates ψ(a).
+theorem principal_le_countable_exists_component {a : _root_.omegaTerm}
+        {c : _root_.countableOrd} (hc : countableOrd_normal c)
+        (h : countableOrd.ofPrincipal (.psi a) ≤c c) :
+        ∃ p ps, c = .sum ps ∧ p ∈ ps ∧ (.psi a ≤p p) := by
+  cases hc with
+  | sum hps =>
+    rename_i ps
+    cases ps with
+    | nil =>
+      rcases h with h | h
+      · cases h with | sum hlist => cases hlist
+      · cases h with | sum hlist => cases hlist
+    | cons p rest =>
+      refine ⟨p, p :: rest, rfl, by simp, ?_⟩
+      change countableOrd.sum [.psi a] ≤c countableOrd.sum (p :: rest) at h
+      rcases h with h | h
+      · cases h with
+        | sum hlist =>
+          cases hlist with
+          | head hap => exact Or.inl hap
+          | tail heq _ => exact Or.inr heq
+      · cases h with
+        | sum hlist =>
+          cases hlist with
+          | cons heq _ => exact Or.inr heq
+end BHToFreund
 
+namespace FreundTerm
+-- Freund addition is strictly monotone in the right argument.
+theorem cnfAdd_right_lt {base a b : FreundTerm} (hab : a <f b) :
+        cnfAdd base a <f cnfAdd base b := by
+  sorry
+-- Multiplication by Ω preserves strict comparison on normal Freund terms.
+theorem OmegaMul_lt {a b : FreundTerm} (ha : FreundTerm_normal a)
+        (hb : FreundTerm_normal b) (hab : a <f b) :
+        OmegaMul a <f OmegaMul b := by
+  sorry
+-- Shifting a normal exponent list preserves Freund list normality.
+theorem shiftExponents_normal {base beta : FreundTerm}
+        (hbase : FreundTerm_normal base) (hbeta : FreundTerm_normal beta) :
+        FreundTermList_normal (shiftExponents base beta) := by
+  sorry
+end FreundTerm
+
+namespace BHToFreund
+-- Strict comparison of normal source omega terms is preserved by the Freund translation.
+theorem omega_lt_map {a b : _root_.omegaTerm}
+        (ha : omegaTerm_normal a) (hb : omegaTerm_normal b) (h : a<ob) :
+        omega a <f omega b := by
+  sorry
+-- Normal source omega terms translate to normal Freund terms.
+theorem omega_normal_map {a : _root_.omegaTerm} (ha : omegaTerm_normal a) :
+        FreundTerm_normal (omega a) := by
+  sorry
+-- Strict comparison of normal source principals is preserved by the Freund translation.
+theorem principal_lt_map {p q : _root_.principal}
+        (hp : principal_normal p) (hq : principal_normal q) (h : p<pq) :
+        principal p <f principal q := by
+  sorry
+-- Normal source principals translate to normal Freund terms.
+theorem principal_normal_map {p : _root_.principal} (hp : principal_normal p) :
+        FreundTerm_normal (principal p) := by
+  sorry
+-- Weak comparison of normal source principals is preserved by the Freund translation.
+theorem principal_le_map {p q : _root_.principal}
+        (hp : principal_normal p) (hq : principal_normal q) (h : p≤pq) :
+        principal p ≤f principal q := by
+  sorry
+-- Strict comparison of normal principal lists is preserved by the Freund translation.
+theorem principalList_lt_map {ps qs : List _root_.principal}
+        (hps : principalList_normal ps) (hqs : principalList_normal qs)
+        (h : principalList_lt ps qs) :
+        FreundTermList_lt (principalList ps) (principalList qs) := by
+  sorry
+-- Strict comparison of normal countable ordinals is preserved by the Freund translation.
+theorem countable_lt_map {a b : _root_.countableOrd}
+        (ha : countableOrd_normal a) (hb : countableOrd_normal b) (h : a<cb) :
+        countable a <f countable b := by
+  sorry
+-- Normal source countable ordinals translate to normal Freund terms.
+theorem countable_normal_map {a : _root_.countableOrd} (ha : countableOrd_normal a) :
+        FreundTerm_normal (countable a) := by
+  sorry
+end BHToFreund
+
+namespace BHToFreund
+-- Map NormalPrincipal into NormalFreundTerm.
+noncomputable def NormalPrincipal_toFreund (p : NormalPrincipal) : NormalFreundTerm :=
+  ⟨principal p.1, principal_normal_map p.2⟩
+-- NormalPrincipal comparison is preserved by the map to NormalFreundTerm.
+theorem NormalPrincipal_toFreund_lt {p q : NormalPrincipal} (h : p<npq) :
+        NormalFreundTerm_lt (NormalPrincipal_toFreund p) (NormalPrincipal_toFreund q) := by
+  change principal p.1 <f principal q.1
+  exact principal_lt_map p.2 q.2 h
+end BHToFreund
+
+-- Well-foundedness of NormalPrincipal follows from well-foundedness of NormalFreundTerm.
+theorem NormalPrincipal_lt_wf (hGap : WellQuasiOrdered GapTreeEmbeds) :
+        WellFounded NormalPrincipal_lt := by
+  sorry
+-- Well-foundedness of NormalCountableOrd follows from the strong-gap WQO.
+theorem NormalCountableOrd_lt_wf_of_gap_wqo (hGap : WellQuasiOrdered GapTreeEmbeds) :
+        WellFounded NormalCountableOrd_lt := by
+  exact NormalCountableOrd_lt_wf_of_principal_wf (NormalPrincipal_lt_wf hGap)
+-- Strong-gap well-quasi-ordering of finite two-labelled trees.
+axiom GapTreeEmbeds_wqo : WellQuasiOrdered GapTreeEmbeds
+-- Well-foundedness of the normal countable ordinal notation system.
+theorem NormalCountableOrd_lt_wf : WellFounded NormalCountableOrd_lt := by
+  exact NormalCountableOrd_lt_wf_of_gap_wqo GapTreeEmbeds_wqo
 --========================================================================================
 -- Some Notes
 --========================================================================================
