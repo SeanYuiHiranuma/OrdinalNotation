@@ -1,0 +1,1571 @@
+⚠ [8475/8477] Replayed Myproject.OrdinalNotationPohlers
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:2:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `inductive OT where
+  | cnf : List OT → OT`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+info: Myproject/OrdinalNotationPohlers.lean:17:0: linter.style.header:56:15: error: expected token
+
+linter.style.header:61:14: error: expected token
+
+linter.style.header:65:14: error: expected token
+
+linter.style.header:69:31: error: expected token
+
+linter.style.header:84:73: error: expected token
+
+linter.style.header:118:38: error: expected token
+
+linter.style.header:157:33: error: expected token
+
+linter.style.header:174:32: error: expected token
+
+linter.style.header:189:36: error: expected token
+
+linter.style.header:206:36: error: expected token
+
+linter.style.header:210:40: error: expected token
+
+linter.style.header:231:39: error: expected token
+
+linter.style.header:233:40: error: expected token
+
+linter.style.header:237:44: error: expected token
+
+linter.style.header:248:40: error: expected token
+
+linter.style.header:257:38: error: expected token
+
+linter.style.header:261:41: error: expected token
+
+linter.style.header:265:42: error: expected token
+
+linter.style.header:269:46: error: expected token
+
+linter.style.header:273:35: error: expected token
+
+linter.style.header:292:45: error: expected token
+
+linter.style.header:297:45: error: expected token
+
+linter.style.header:304:35: error: expected token
+
+linter.style.header:334:73: error: expected token
+
+linter.style.header:371:37: error: expected token
+
+linter.style.header:387:58: error: expected token
+
+linter.style.header:389:58: error: expected token
+
+linter.style.header:446:54: error: expected token
+
+linter.style.header:537:37: error: expected token
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:2:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `namespace OT`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+info: Myproject/OrdinalNotationPohlers.lean:20:0: linter.style.header:56:15: error: expected token
+
+linter.style.header:61:14: error: expected token
+
+linter.style.header:65:14: error: expected token
+
+linter.style.header:69:31: error: expected token
+
+linter.style.header:84:73: error: expected token
+
+linter.style.header:118:38: error: expected token
+
+linter.style.header:157:33: error: expected token
+
+linter.style.header:174:32: error: expected token
+
+linter.style.header:189:36: error: expected token
+
+linter.style.header:206:36: error: expected token
+
+linter.style.header:210:40: error: expected token
+
+linter.style.header:231:39: error: expected token
+
+linter.style.header:233:40: error: expected token
+
+linter.style.header:237:44: error: expected token
+
+linter.style.header:248:40: error: expected token
+
+linter.style.header:257:38: error: expected token
+
+linter.style.header:261:41: error: expected token
+
+linter.style.header:265:42: error: expected token
+
+linter.style.header:269:46: error: expected token
+
+linter.style.header:273:35: error: expected token
+
+linter.style.header:292:45: error: expected token
+
+linter.style.header:297:45: error: expected token
+
+linter.style.header:304:35: error: expected token
+
+linter.style.header:334:73: error: expected token
+
+linter.style.header:371:37: error: expected token
+
+linter.style.header:387:58: error: expected token
+
+linter.style.header:389:58: error: expected token
+
+linter.style.header:446:54: error: expected token
+
+linter.style.header:537:37: error: expected token
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:2:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `def zero : OT :=
+  cnf []`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+info: Myproject/OrdinalNotationPohlers.lean:23:0: linter.style.header:56:15: error: expected token
+
+linter.style.header:61:14: error: expected token
+
+linter.style.header:65:14: error: expected token
+
+linter.style.header:69:31: error: expected token
+
+linter.style.header:84:73: error: expected token
+
+linter.style.header:118:38: error: expected token
+
+linter.style.header:157:33: error: expected token
+
+linter.style.header:174:32: error: expected token
+
+linter.style.header:189:36: error: expected token
+
+linter.style.header:206:36: error: expected token
+
+linter.style.header:210:40: error: expected token
+
+linter.style.header:231:39: error: expected token
+
+linter.style.header:233:40: error: expected token
+
+linter.style.header:237:44: error: expected token
+
+linter.style.header:248:40: error: expected token
+
+linter.style.header:257:38: error: expected token
+
+linter.style.header:261:41: error: expected token
+
+linter.style.header:265:42: error: expected token
+
+linter.style.header:269:46: error: expected token
+
+linter.style.header:273:35: error: expected token
+
+linter.style.header:292:45: error: expected token
+
+linter.style.header:297:45: error: expected token
+
+linter.style.header:304:35: error: expected token
+
+linter.style.header:334:73: error: expected token
+
+linter.style.header:371:37: error: expected token
+
+linter.style.header:387:58: error: expected token
+
+linter.style.header:389:58: error: expected token
+
+linter.style.header:446:54: error: expected token
+
+linter.style.header:537:37: error: expected token
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:2:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `def one : OT :=
+  cnf [zero]`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+info: Myproject/OrdinalNotationPohlers.lean:25:0: linter.style.header:56:15: error: expected token
+
+linter.style.header:61:14: error: expected token
+
+linter.style.header:65:14: error: expected token
+
+linter.style.header:69:31: error: expected token
+
+linter.style.header:84:73: error: expected token
+
+linter.style.header:118:38: error: expected token
+
+linter.style.header:157:33: error: expected token
+
+linter.style.header:174:32: error: expected token
+
+linter.style.header:189:36: error: expected token
+
+linter.style.header:206:36: error: expected token
+
+linter.style.header:210:40: error: expected token
+
+linter.style.header:231:39: error: expected token
+
+linter.style.header:233:40: error: expected token
+
+linter.style.header:237:44: error: expected token
+
+linter.style.header:248:40: error: expected token
+
+linter.style.header:257:38: error: expected token
+
+linter.style.header:261:41: error: expected token
+
+linter.style.header:265:42: error: expected token
+
+linter.style.header:269:46: error: expected token
+
+linter.style.header:273:35: error: expected token
+
+linter.style.header:292:45: error: expected token
+
+linter.style.header:297:45: error: expected token
+
+linter.style.header:304:35: error: expected token
+
+linter.style.header:334:73: error: expected token
+
+linter.style.header:371:37: error: expected token
+
+linter.style.header:387:58: error: expected token
+
+linter.style.header:389:58: error: expected token
+
+linter.style.header:446:54: error: expected token
+
+linter.style.header:537:37: error: expected token
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:2:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `def two : OT :=
+  cnf [zero, zero]`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+info: Myproject/OrdinalNotationPohlers.lean:27:0: linter.style.header:56:15: error: expected token
+
+linter.style.header:61:14: error: expected token
+
+linter.style.header:65:14: error: expected token
+
+linter.style.header:69:31: error: expected token
+
+linter.style.header:84:73: error: expected token
+
+linter.style.header:118:38: error: expected token
+
+linter.style.header:157:33: error: expected token
+
+linter.style.header:174:32: error: expected token
+
+linter.style.header:189:36: error: expected token
+
+linter.style.header:206:36: error: expected token
+
+linter.style.header:210:40: error: expected token
+
+linter.style.header:231:39: error: expected token
+
+linter.style.header:233:40: error: expected token
+
+linter.style.header:237:44: error: expected token
+
+linter.style.header:248:40: error: expected token
+
+linter.style.header:257:38: error: expected token
+
+linter.style.header:261:41: error: expected token
+
+linter.style.header:265:42: error: expected token
+
+linter.style.header:269:46: error: expected token
+
+linter.style.header:273:35: error: expected token
+
+linter.style.header:292:45: error: expected token
+
+linter.style.header:297:45: error: expected token
+
+linter.style.header:304:35: error: expected token
+
+linter.style.header:334:73: error: expected token
+
+linter.style.header:371:37: error: expected token
+
+linter.style.header:387:58: error: expected token
+
+linter.style.header:389:58: error: expected token
+
+linter.style.header:446:54: error: expected token
+
+linter.style.header:537:37: error: expected token
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:2:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `def omegaOT :=
+  cnf [one]`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+info: Myproject/OrdinalNotationPohlers.lean:29:0: linter.style.header:56:15: error: expected token
+
+linter.style.header:61:14: error: expected token
+
+linter.style.header:65:14: error: expected token
+
+linter.style.header:69:31: error: expected token
+
+linter.style.header:84:73: error: expected token
+
+linter.style.header:118:38: error: expected token
+
+linter.style.header:157:33: error: expected token
+
+linter.style.header:174:32: error: expected token
+
+linter.style.header:189:36: error: expected token
+
+linter.style.header:206:36: error: expected token
+
+linter.style.header:210:40: error: expected token
+
+linter.style.header:231:39: error: expected token
+
+linter.style.header:233:40: error: expected token
+
+linter.style.header:237:44: error: expected token
+
+linter.style.header:248:40: error: expected token
+
+linter.style.header:257:38: error: expected token
+
+linter.style.header:261:41: error: expected token
+
+linter.style.header:265:42: error: expected token
+
+linter.style.header:269:46: error: expected token
+
+linter.style.header:273:35: error: expected token
+
+linter.style.header:292:45: error: expected token
+
+linter.style.header:297:45: error: expected token
+
+linter.style.header:304:35: error: expected token
+
+linter.style.header:334:73: error: expected token
+
+linter.style.header:371:37: error: expected token
+
+linter.style.header:387:58: error: expected token
+
+linter.style.header:389:58: error: expected token
+
+linter.style.header:446:54: error: expected token
+
+linter.style.header:537:37: error: expected token
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:2:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `mutual
+  inductive lt : OT → OT → Prop where
+    | cnf_lt {xs ys : List OT} : lt_list xs ys → lt (cnf xs) (cnf ys)
+  inductive lt_list : List OT → List OT → Prop where
+    | nil_cons {x : OT} {xs : List OT} : lt_list [] (x :: xs)
+    | head_cons {x y : OT} {xs ys : List OT} : lt x y → lt_list (x :: xs) (y :: ys)
+    | tail_cons {x : OT} {xs ys : List OT} : lt_list xs ys → lt_list (x :: xs) (x :: ys)
+end`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+info: Myproject/OrdinalNotationPohlers.lean:46:0: linter.style.header:56:15: error: expected token
+
+linter.style.header:61:14: error: expected token
+
+linter.style.header:65:14: error: expected token
+
+linter.style.header:69:31: error: expected token
+
+linter.style.header:84:73: error: expected token
+
+linter.style.header:118:38: error: expected token
+
+linter.style.header:157:33: error: expected token
+
+linter.style.header:174:32: error: expected token
+
+linter.style.header:189:36: error: expected token
+
+linter.style.header:206:36: error: expected token
+
+linter.style.header:210:40: error: expected token
+
+linter.style.header:231:39: error: expected token
+
+linter.style.header:233:40: error: expected token
+
+linter.style.header:237:44: error: expected token
+
+linter.style.header:248:40: error: expected token
+
+linter.style.header:257:38: error: expected token
+
+linter.style.header:261:41: error: expected token
+
+linter.style.header:265:42: error: expected token
+
+linter.style.header:269:46: error: expected token
+
+linter.style.header:273:35: error: expected token
+
+linter.style.header:292:45: error: expected token
+
+linter.style.header:297:45: error: expected token
+
+linter.style.header:304:35: error: expected token
+
+linter.style.header:334:73: error: expected token
+
+linter.style.header:371:37: error: expected token
+
+linter.style.header:387:58: error: expected token
+
+linter.style.header:389:58: error: expected token
+
+linter.style.header:446:54: error: expected token
+
+linter.style.header:537:37: error: expected token
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:2:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `infix:50 " ≺ " => lt`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+info: Myproject/OrdinalNotationPohlers.lean:54:0: linter.style.header:84:73: error: expected token
+
+linter.style.header:157:33: error: expected token
+
+linter.style.header:210:40: error: expected token
+
+linter.style.header:233:40: error: expected token
+
+linter.style.header:248:40: error: expected token
+
+linter.style.header:265:44: error: unexpected identifier; expected ')'
+
+linter.style.header:269:46: error: expected token
+
+linter.style.header:273:35: error: expected token
+
+linter.style.header:292:54: error: expected token
+
+linter.style.header:297:45: error: expected token
+
+linter.style.header:304:35: error: expected token
+
+linter.style.header:334:73: error: expected token
+
+linter.style.header:371:37: error: expected token
+
+linter.style.header:387:60: error: unexpected identifier; expected ')'
+
+linter.style.header:389:58: error: expected token
+
+linter.style.header:446:54: error: expected token
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:2:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `example : zero ≺ one :=
+  by
+  unfold zero
+  unfold one
+  exact lt.cnf_lt (lt_list.nil_cons)`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+info: Myproject/OrdinalNotationPohlers.lean:56:0: linter.style.header:84:73: error: expected token
+
+linter.style.header:157:33: error: expected token
+
+linter.style.header:210:40: error: expected token
+
+linter.style.header:233:40: error: expected token
+
+linter.style.header:248:40: error: expected token
+
+linter.style.header:265:44: error: unexpected identifier; expected ')'
+
+linter.style.header:269:46: error: expected token
+
+linter.style.header:273:35: error: expected token
+
+linter.style.header:292:54: error: expected token
+
+linter.style.header:297:45: error: expected token
+
+linter.style.header:304:35: error: expected token
+
+linter.style.header:334:73: error: expected token
+
+linter.style.header:371:37: error: expected token
+
+linter.style.header:387:60: error: unexpected identifier; expected ')'
+
+linter.style.header:389:58: error: expected token
+
+linter.style.header:446:54: error: expected token
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:2:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `example : one ≺ two :=
+  by
+  unfold two one zero
+  exact lt.cnf_lt (lt_list.tail_cons (lt_list.nil_cons))`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+info: Myproject/OrdinalNotationPohlers.lean:61:0: linter.style.header:84:73: error: expected token
+
+linter.style.header:157:33: error: expected token
+
+linter.style.header:210:40: error: expected token
+
+linter.style.header:233:40: error: expected token
+
+linter.style.header:248:40: error: expected token
+
+linter.style.header:265:44: error: unexpected identifier; expected ')'
+
+linter.style.header:269:46: error: expected token
+
+linter.style.header:273:35: error: expected token
+
+linter.style.header:292:54: error: expected token
+
+linter.style.header:297:45: error: expected token
+
+linter.style.header:304:35: error: expected token
+
+linter.style.header:334:73: error: expected token
+
+linter.style.header:371:37: error: expected token
+
+linter.style.header:387:60: error: unexpected identifier; expected ')'
+
+linter.style.header:389:58: error: expected token
+
+linter.style.header:446:54: error: expected token
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:2:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `example : one ≺ omegaOT :=
+  by
+  unfold omegaOT one zero
+  exact lt.cnf_lt (lt_list.head_cons (lt.cnf_lt (lt_list.nil_cons)))`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+info: Myproject/OrdinalNotationPohlers.lean:65:0: linter.style.header:84:73: error: expected token
+
+linter.style.header:157:33: error: expected token
+
+linter.style.header:210:40: error: expected token
+
+linter.style.header:233:40: error: expected token
+
+linter.style.header:248:40: error: expected token
+
+linter.style.header:265:44: error: unexpected identifier; expected ')'
+
+linter.style.header:269:46: error: expected token
+
+linter.style.header:273:35: error: expected token
+
+linter.style.header:292:54: error: expected token
+
+linter.style.header:297:45: error: expected token
+
+linter.style.header:304:35: error: expected token
+
+linter.style.header:334:73: error: expected token
+
+linter.style.header:371:37: error: expected token
+
+linter.style.header:387:60: error: unexpected identifier; expected ')'
+
+linter.style.header:389:58: error: expected token
+
+linter.style.header:446:54: error: expected token
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:2:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `def leq (a b : OT) : Prop :=
+  a ≺ b ∨ a = b`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+info: Myproject/OrdinalNotationPohlers.lean:69:0: linter.style.header:84:73: error: expected token
+
+linter.style.header:157:33: error: expected token
+
+linter.style.header:210:40: error: expected token
+
+linter.style.header:233:40: error: expected token
+
+linter.style.header:248:40: error: expected token
+
+linter.style.header:265:44: error: unexpected identifier; expected ')'
+
+linter.style.header:269:46: error: expected token
+
+linter.style.header:273:35: error: expected token
+
+linter.style.header:292:54: error: expected token
+
+linter.style.header:297:45: error: expected token
+
+linter.style.header:304:35: error: expected token
+
+linter.style.header:334:73: error: expected token
+
+linter.style.header:371:37: error: expected token
+
+linter.style.header:387:60: error: unexpected identifier; expected ')'
+
+linter.style.header:389:58: error: expected token
+
+linter.style.header:446:54: error: expected token
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:2:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `infix:50 " ≼ " => leq`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+info: Myproject/OrdinalNotationPohlers.lean:70:0: linter.style.header:265:44: error: unexpected identifier; expected ')'
+
+linter.style.header:269:48: error: unexpected identifier; expected ')'
+
+linter.style.header:387:60: error: unexpected identifier; expected ')'
+
+linter.style.header:389:60: error: unexpected identifier; expected ')'
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:2:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `mutual
+  inductive normal : OT → Prop where
+    | cnf {xs : List OT} : normalList xs → normal (cnf xs)
+  inductive normalList : List OT → Prop where
+    | nil : normalList []
+    | singleton {x : OT} : normal x → normalList [x]
+    | cons {x y : OT} {xs : List OT} : normal x → normalList (y :: xs) → y ≼ x → normalList (x :: y :: xs)
+end`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+info: Myproject/OrdinalNotationPohlers.lean:78:0: linter.style.header:265:44: error: unexpected identifier; expected ')'
+
+linter.style.header:269:48: error: unexpected identifier; expected ')'
+
+linter.style.header:387:60: error: unexpected identifier; expected ')'
+
+linter.style.header:389:60: error: unexpected identifier; expected ')'
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:2:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `example : normal zero :=
+  by
+  unfold zero
+  exact normal.cnf (normalList.nil)`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+info: Myproject/OrdinalNotationPohlers.lean:87:0: linter.style.header:265:44: error: unexpected identifier; expected ')'
+
+linter.style.header:269:48: error: unexpected identifier; expected ')'
+
+linter.style.header:387:60: error: unexpected identifier; expected ')'
+
+linter.style.header:389:60: error: unexpected identifier; expected ')'
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:2:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `example : normal one :=
+  by
+  unfold one zero
+  exact normal.cnf (normalList.singleton (normal.cnf (normalList.nil)))`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+info: Myproject/OrdinalNotationPohlers.lean:90:0: linter.style.header:265:44: error: unexpected identifier; expected ')'
+
+linter.style.header:269:48: error: unexpected identifier; expected ')'
+
+linter.style.header:387:60: error: unexpected identifier; expected ')'
+
+linter.style.header:389:60: error: unexpected identifier; expected ')'
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:2:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `example : normal two :=
+  by
+  unfold two zero
+  exact
+    normal.cnf
+      (normalList.cons (normal.cnf normalList.nil) (normalList.singleton (normal.cnf normalList.nil)) (by right; rfl))`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+info: Myproject/OrdinalNotationPohlers.lean:93:0: linter.style.header:265:44: error: unexpected identifier; expected ')'
+
+linter.style.header:269:48: error: unexpected identifier; expected ')'
+
+linter.style.header:387:60: error: unexpected identifier; expected ')'
+
+linter.style.header:389:60: error: unexpected identifier; expected ')'
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:2:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `example : normal omegaOT :=
+  by
+  unfold omegaOT one zero
+  exact normal.cnf (normalList.singleton (normal.cnf (normalList.singleton (normal.cnf normalList.nil))))`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+info: Myproject/OrdinalNotationPohlers.lean:100:0: linter.style.header:265:44: error: unexpected identifier; expected ')'
+
+linter.style.header:269:48: error: unexpected identifier; expected ')'
+
+linter.style.header:387:60: error: unexpected identifier; expected ')'
+
+linter.style.header:389:60: error: unexpected identifier; expected ')'
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:2:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `mutual
+  theorem lt_trichotomy : ∀ a b : OT, a ≺ b ∨ a = b ∨ b ≺ a
+    | cnf xs, cnf ys => by
+      have h := ltList_trichotomy xs ys
+      cases h with
+        -- assume lt_list xs ys is true
+        
+      | inl hlt => left; exact lt.cnf_lt hlt
+      | inr h =>
+        cases h with
+          -- assume xs = ys is true
+          
+        | inl heq => right; left; cases heq;
+          rfl
+            -- assume lt_list ys xs is true
+            
+        | inr hgt => right; right; exact lt.cnf_lt hgt
+  theorem ltList_trichotomy : ∀ xs ys : List OT, lt_list xs ys ∨ xs = ys ∨ lt_list ys xs
+    | [], [] => by right; left; rfl
+    | [], y :: ys => by left; exact lt_list.nil_cons
+    | x :: xs, [] => by right; right; exact lt_list.nil_cons
+    | x :: xs, y :: ys => by
+      have hhead := lt_trichotomy x y
+      cases hhead with
+        -- case of x ≺ y is true
+        
+      | inl hxy => left; exact lt_list.head_cons hxy
+      | inr h =>
+        cases h with
+          -- case of x = y
+          
+        | inl heq =>
+          subst y
+          have htail := ltList_trichotomy xs ys
+          cases htail with
+            -- lt_list xs ys
+            
+          | inl hxsys => left; exact lt_list.tail_cons hxsys
+          | inr h2 =>
+            cases h2 with
+              -- xs = ys
+              
+            | inl hxsEq => subst ys; right; left; rfl
+            | inr hysxs => right; right; exact lt_list.tail_cons hysxs
+        | inr hyx => right; right; exact lt_list.head_cons hyx
+end`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+info: Myproject/OrdinalNotationPohlers.lean:117:0: linter.style.header:265:44: error: unexpected identifier; expected ')'
+
+linter.style.header:269:48: error: unexpected identifier; expected ')'
+
+linter.style.header:387:60: error: unexpected identifier; expected ')'
+
+linter.style.header:389:60: error: unexpected identifier; expected ')'
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:2:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `theorem leq_total (a b : OT) : a ≼ b ∨ b ≼ a :=
+  by
+  have h := lt_trichotomy a b
+  cases h with
+  | inl hab => left; left; exact hab
+  | inr rest =>
+    cases rest with
+    | inl heq => left; right; exact heq
+    | inr hba => right; left; exact hba`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+info: Myproject/OrdinalNotationPohlers.lean:157:0: linter.style.header:265:44: error: unexpected identifier; expected ')'
+
+linter.style.header:269:48: error: unexpected identifier; expected ')'
+
+linter.style.header:387:60: error: unexpected identifier; expected ')'
+
+linter.style.header:389:60: error: unexpected identifier; expected ')'
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:2:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `mutual
+  theorem lt_irfl : ∀ a : OT, ¬a ≺ a
+    | cnf xs => by
+      intro h
+      cases h with
+      | cnf_lt hlist => exact lt_list_irfl xs hlist
+  theorem lt_list_irfl : ∀ xs : List OT, ¬lt_list xs xs
+    | [] => by
+      intro h
+      cases h
+    | x :: xs => by
+      intro h
+      cases h with
+      | head_cons hxy => exact lt_irfl x hxy
+      | tail_cons htail => exact lt_list_irfl xs htail
+end`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+info: Myproject/OrdinalNotationPohlers.lean:173:0: linter.style.header:265:44: error: unexpected identifier; expected ')'
+
+linter.style.header:269:48: error: unexpected identifier; expected ')'
+
+linter.style.header:387:60: error: unexpected identifier; expected ')'
+
+linter.style.header:389:60: error: unexpected identifier; expected ')'
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:2:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `mutual
+  theorem lt_trans : ∀ {a b c : OT}, a ≺ b → b ≺ c → a ≺ c
+    | _, _, _, lt.cnf_lt hxy, lt.cnf_lt hyz => lt.cnf_lt (lt_list_trans hxy hyz)
+  theorem lt_list_trans : ∀ {xs ys zs : List OT}, lt_list xs ys → lt_list ys zs → lt_list xs zs
+    | _, _, _, lt_list.nil_cons, hyz => by
+      cases hyz with
+      | head_cons h => exact lt_list.nil_cons
+      | tail_cons h => exact lt_list.nil_cons
+    | _, _, _, lt_list.head_cons hxy, hyz => by
+      cases hyz with
+      | head_cons hyz => exact lt_list.head_cons (lt_trans hxy hyz)
+      | tail_cons hyz => exact lt_list.head_cons hxy
+    | _, _, _, lt_list.tail_cons hxy, hyz => by
+      cases hyz with
+      | head_cons hyz => exact lt_list.head_cons hyz
+      | tail_cons hyz => exact lt_list.tail_cons (lt_list_trans hxy hyz)
+end`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+info: Myproject/OrdinalNotationPohlers.lean:188:0: linter.style.header:265:44: error: unexpected identifier; expected ')'
+
+linter.style.header:269:48: error: unexpected identifier; expected ')'
+
+linter.style.header:387:60: error: unexpected identifier; expected ')'
+
+linter.style.header:389:60: error: unexpected identifier; expected ')'
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:2:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `theorem lt_asym {a b : OT} (hab : a ≺ b) : ¬b ≺ a :=
+  by
+  intro hba
+  exact lt_irfl a (lt_trans hab hba)`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+info: Myproject/OrdinalNotationPohlers.lean:206:0: linter.style.header:265:44: error: unexpected identifier; expected ')'
+
+linter.style.header:269:48: error: unexpected identifier; expected ')'
+
+linter.style.header:387:60: error: unexpected identifier; expected ')'
+
+linter.style.header:389:60: error: unexpected identifier; expected ')'
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:2:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `theorem leq_antisym {a b : OT} (hab : a ≼ b) (hba : b ≼ a) : a = b := by
+  cases hab with
+  | inl hlt =>
+    cases hba with
+    | inl hgt => exact False.elim (lt_irfl a (lt_trans hlt hgt))
+    | inr heq => exact heq.symm
+  | inr heq => exact heq`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+info: Myproject/OrdinalNotationPohlers.lean:210:0: linter.style.header:265:44: error: unexpected identifier; expected ')'
+
+linter.style.header:269:48: error: unexpected identifier; expected ')'
+
+linter.style.header:387:60: error: unexpected identifier; expected ')'
+
+linter.style.header:389:60: error: unexpected identifier; expected ')'
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:2:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `def cnfOT : Type :=
+  { a : OT // normal a }`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+info: Myproject/OrdinalNotationPohlers.lean:228:0: linter.style.header:265:44: error: unexpected identifier; expected ')'
+
+linter.style.header:269:48: error: unexpected identifier; expected ')'
+
+linter.style.header:387:60: error: unexpected identifier; expected ')'
+
+linter.style.header:389:60: error: unexpected identifier; expected ')'
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:2:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `def cnf_lt (a b : cnfOT) : Prop :=
+  a.1 ≺ b.1`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+info: Myproject/OrdinalNotationPohlers.lean:231:0: linter.style.header:265:44: error: unexpected identifier; expected ')'
+
+linter.style.header:269:48: error: unexpected identifier; expected ')'
+
+linter.style.header:387:60: error: unexpected identifier; expected ')'
+
+linter.style.header:389:60: error: unexpected identifier; expected ')'
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:2:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `infix:50 "≺ₙ" => cnf_lt`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+info: Myproject/OrdinalNotationPohlers.lean:232:0: linter.style.header:269:48: error: unexpected identifier; expected ')'
+
+linter.style.header:389:60: error: unexpected identifier; expected ')'
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:2:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `def cnf_leq (a b : cnfOT) : Prop :=
+  a.1 ≼ b.1`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+info: Myproject/OrdinalNotationPohlers.lean:233:0: linter.style.header:269:48: error: unexpected identifier; expected ')'
+
+linter.style.header:389:60: error: unexpected identifier; expected ')'
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:17:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `infix:50 "≼ₙ" => cnf_leq`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:17:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `theorem cnf_lt_trichotomy (a b : cnfOT) : a≺ₙb ∨ a = b ∨ b≺ₙa :=
+  by
+  have h := lt_trichotomy a.1 b.1
+  cases h with
+    -- Assume a.1 ≺ b.1 it true
+    
+  | inl hab => left; exact hab
+  | inr h =>
+    cases h with
+    | inl heq => right; left; cases a; cases b; simp at heq; simp [heq]
+    | inr hba => right; right; exact hba`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:17:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `theorem cnf_leq_total (a b : cnfOT) : a≼ₙb ∨ b≼ₙa :=
+  by
+  have h := cnf_lt_trichotomy a b
+  cases h with
+  | inl hab => left; left; exact hab
+  | inr hba =>
+    cases hba with
+    | inl h1 => left; right; exact congrArg Subtype.val h1
+    | inr h2 => right; left; exact h2`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:17:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `theorem cnf_lt_irfl (a : cnfOT) : ¬a≺ₙa :=
+  by
+  intro h
+  exact lt_irfl a.1 h`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:17:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `theorem cnf_lt_trans {a b c : cnfOT} : a≺ₙb → b≺ₙc → a≺ₙc :=
+  by
+  intro hab hbc
+  exact lt_trans hab hbc`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:17:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `theorem cnf_lt_asym {a b : cnfOT} (hab : a≺ₙb) : ¬b≺ₙa :=
+  by
+  intro h
+  exact lt_asym hab h`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:17:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `theorem cnf_leq_antisym {a b : cnfOT} (hab : a≼ₙb) (hba : b≼ₙa) : a = b :=
+  by
+  apply Subtype.ext
+  exact leq_antisym hab hba`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:17:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `theorem leq_trans {a b c : OT} : a ≼ b → b ≼ c → a ≼ c :=
+  by
+  intro hab hbc
+  cases hab with
+  | inl hab_lt =>
+    cases hbc with
+    | inl hbc_lt =>
+      left
+      exact lt_trans hab_lt hbc_lt
+    | inr hbc_eq =>
+      left
+      simpa [hbc_eq] using hab_lt
+  | inr hab_eq =>
+    cases hbc with
+    | inl hbc_lt =>
+      left
+      simpa [← hab_eq] using hbc_lt
+    | inr hbc_eq =>
+      right
+      exact Eq.trans hab_eq hbc_eq`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:17:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `lemma cnf_lt_of_lt_is_le {a b c : cnfOT} : a≺ₙb → b≼ₙc → a≺ₙc :=
+  by
+  intro hab hbc
+  cases hbc with
+  | inl lt => exact cnf_lt_trans hab lt
+  | inr eq => simpa [cnf_lt, eq] using hab`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:17:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `lemma cnf_lt_of_le_of_lt {a b c : cnfOT} : a≼ₙb → b≺ₙc → a≺ₙc :=
+  by
+  intro hab hbc
+  cases hab with
+  | inl lt => exact cnf_lt_trans lt hbc
+  | inr eq => simpa [cnf_lt, eq] using hbc`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:17:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `lemma cnf_leq_refl (a : cnfOT) : a≼ₙa := by right; rfl`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:17:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `def cnfOTList : Type :=
+  { xs : List OT // normalList xs }`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:17:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `def cnfOTList_lt (xs ys : cnfOTList) : Prop :=
+  lt_list xs.1 ys.1`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:17:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `def listBoundedBy (x : OT) (xs : List OT) : Prop :=
+  ∀ y : OT, y ∈ xs → y ≼ x`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:17:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `lemma normalList_head_normal {x : OT} {xs : List OT} :
+    normalList (x :: xs) → normal x := by
+  intro h
+  cases xs with
+  | nil =>
+    cases h with
+    | singleton s => exact s
+  | cons a as =>
+    cases h with
+    | cons hx htail hyx => exact hx`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:17:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `lemma normalList_tail_normal {x : OT} {xs : List OT} :
+    normalList (x :: xs) → normalList xs := by
+  intro h
+  cases xs with
+  | nil => exact normalList.nil
+  | cons a as =>
+    cases h with
+    | cons hx htail hyx => exact htail`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:17:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `lemma normalList_tail_bounded_by_head {x : OT} {xs : List OT} :
+    normalList (x :: xs) → listBoundedBy x xs := by
+  induction xs generalizing x with
+  | nil =>
+    intro h y hy
+    cases hy
+  | cons z zs ih =>
+    intro h y hy
+    cases h with
+    | cons hx htail hzx =>
+      simp at hy
+      cases hy with
+      | inl hy_eq => simpa [hy_eq] using hzx
+      | inr hy_tail =>
+        have hy_le_z : y ≼ z := by exact ih htail y hy_tail
+        exact leq_trans hy_le_z hzx`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:366:14: `simp at hy` is a flexible tactic modifying `hy`. Try `simp?` and use the suggested `simp only [...]`. Alternatively, use `suffices` to explicitly state the simplified form.
+
+Note: This linter can be disabled with `set_option linter.flexible false`
+info: Myproject/OrdinalNotationPohlers.lean:367:14: `cases hy with
+| inl hy_eq => simpa [hy_eq] using hzx
+| inr hy_tail =>
+  have hy_le_z : y ≼ z := by exact ih htail y hy_tail
+  exact leq_trans hy_le_z hzx` uses `hy`!
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:17:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `lemma normalList_bounded_by_head {x : OT} {xs : List OT} :
+    normalList (x :: xs) → listBoundedBy x (x :: xs) :=
+  by
+  intro h z hz
+  simp at hz
+  cases hz with
+    -- z = x
+    
+  | inl hz_eq => subst z; right; rfl
+  | inr hz_tail => exact normalList_tail_bounded_by_head h z hz_tail`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:377:2: `simp at hz` is a flexible tactic modifying `hz`. Try `simp?` and use the suggested `simp only [...]`. Alternatively, use `suffices` to explicitly state the simplified form.
+
+Note: This linter can be disabled with `set_option linter.flexible false`
+info: Myproject/OrdinalNotationPohlers.lean:378:2: `cases hz with
+  -- z = x
+  
+| inl hz_eq => subst z; right; rfl
+| inr hz_tail => exact normalList_tail_bounded_by_head h z hz_tail` uses `hz`!
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:17:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `lemma acc_of_lt {x y : cnfOT} (hx : Acc cnf_lt x) (hyx : y≺ₙx) : Acc cnf_lt y :=
+  by exact Acc.inv hx hyx`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:17:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `lemma acc_of_le {x y : cnfOT} (hx : Acc cnf_lt x) (hyx : y≼ₙx) : Acc cnf_lt y :=
+  by
+  cases hyx with
+  | inl hlt => exact Acc.inv hx hlt
+  | inr heq =>
+    have hxy : y = x := Subtype.ext heq
+    simpa [hxy] using hx`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:17:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `lemma nil_list_acc : Acc cnfOTList_lt ⟨[], normalList.nil⟩ :=
+  by
+  apply Acc.intro
+  intro y hy
+  rcases y with ⟨ys, ysNormal⟩
+  unfold cnfOTList_lt at hy
+  cases hy`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:17:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `theorem boundedList_acc (x : cnfOT) (hx : Acc cnf_lt x) :
+    ∀ xs : cnfOTList, listBoundedBy x.1 xs.1 → Acc cnfOTList_lt xs := by
+  /-
+    We are assuming that for all y ≺ₙ x that satisfies Acc cnf_lt y, the theorem statement holds.
+    That is, ∀ xs : cnfOTList, listBoundedBy y.1 xs.1 → Acc cnfOTList_lt xs. In the code below,
+              h : ∀ y ≺ₙ x, Acc cnf_lt y
+              ih : ∀ xs : cnfOTList, listBoundedBy y.1 xs.1 → Acc cnfOTList_lt xs
+    -/
+  induction hx with
+    -- Goal : ∀ xs : cnfOTList, listBoundedBy x.1 xs.1 → Acc cnfOTList_lt xs
+    
+  | intro x h ih =>
+    intro xs hxs
+    rcases xs with ⟨xs, hxs_normal⟩
+    revert hxs_normal hxs
+    induction xs with
+    | nil =>
+      intro hxs_normal hxs
+      exact nil_list_acc
+    | cons a as ihList =>
+      intro hxs_normal hxs
+      have ha_normal : normal a := by exact normalList_head_normal hxs_normal
+      have has_normal : normalList as := by exact normalList_tail_normal hxs_normal
+      have ha_le_x : (⟨a, ha_normal⟩ : cnfOT)≼ₙx := by
+        exact
+          hxs a
+            (by simp)
+              -- x bounded elements of as from above
+              
+      have has_bound_by_x : listBoundedBy x.1 as := by
+        intro y hy
+        exact
+          hxs y
+            (by simp [hy])
+              -- At this point, we know all elements of xs is less than x
+                            -- as is accessible
+              
+      have has_acc : Acc cnfOTList_lt ⟨as, has_normal⟩ := by exact ihList has_normal has_bound_by_x
+      have cons_acc_of_tail_acc : -- PROOF IS AI MUST CHECK
+        ∀ ts : cnfOTList, Acc cnfOTList_lt ts → ∀ hcons : normalList (a :: ts.1), Acc cnfOTList_lt ⟨a :: ts.1, hcons⟩ :=
+        by
+        intro ts hts_acc
+        induction hts_acc with
+        | intro ts smaller ihTail =>
+          intro hcons
+          apply Acc.intro
+          intro ys hys
+          rcases ys with ⟨ys, hys_normal⟩
+          unfold cnfOTList_lt at hys
+          cases ys with
+          | nil => simpa using nil_list_acc
+          | cons b bs =>
+            cases hys with
+            | head_cons
+              hb_lt_a =>
+              have hb_normal : normal b := by exact normalList_head_normal hys_normal
+              have hb_lt_a_n : (⟨b, hb_normal⟩ : cnfOT)≺ₙ(⟨a, ha_normal⟩ : cnfOT) := by exact hb_lt_a
+              have hb_lt_x : (⟨b, hb_normal⟩ : cnfOT)≺ₙx := by exact cnf_lt_of_lt_is_le hb_lt_a_n ha_le_x
+              have hys_bound_by_b : listBoundedBy b (b :: bs) := by exact normalList_bounded_by_head hys_normal
+              exact ih (⟨b, hb_normal⟩ : cnfOT) hb_lt_x ⟨b :: bs, hys_normal⟩ hys_bound_by_b
+            | tail_cons
+              hbs_lt_ts =>
+              have hbs_normal : normalList bs := by exact normalList_tail_normal hys_normal
+              have hbs_lt_ts' : cnfOTList_lt ⟨bs, hbs_normal⟩ ts :=
+                by
+                unfold cnfOTList_lt
+                exact hbs_lt_ts
+              exact ihTail ⟨bs, hbs_normal⟩ hbs_lt_ts' hys_normal
+      exact cons_acc_of_tail_acc ⟨as, has_normal⟩ has_acc hxs_normal`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:17:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `def cnfList_as_cnfOT (xs : cnfOTList) : cnfOT :=
+  ⟨OT.cnf xs.1, normal.cnf xs.2⟩`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:17:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `lemma cnf_acc_of_list_acc (xs : cnfOTList) (hxs_acc : Acc cnfOTList_lt xs) :
+    Acc cnf_lt (cnfList_as_cnfOT xs) := by
+  /-
+    IH : ∀ ys, cnfOTList_lt ys xs → Acc cnfOTList_lt ys
+    Goal : Acc cnf_lt (cnfList_as_cnfOT xs)
+    -/
+  induction hxs_acc with
+  | intro xs hys ih =>
+    rcases xs with ⟨xs, hxs_normal⟩
+    apply Acc.intro
+    intro b hb
+    rcases b with
+      ⟨b, hb_normal⟩
+        -- b : OT, hb_normal : normal (cnf b)
+        
+    cases b with
+    | cnf ys =>
+      cases hb_normal with
+      | cnf hys_normal =>
+        change OT.cnf ys ≺ OT.cnf xs at hb
+        cases hb with
+        | cnf_lt
+          hlist =>
+          have hlist' : cnfOTList_lt ⟨ys, hys_normal⟩ ⟨xs, hxs_normal⟩ :=
+            by
+            unfold cnfOTList_lt
+            exact hlist
+          simpa [cnfList_as_cnfOT] using ih ⟨ys, hys_normal⟩ hlist'`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:17:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `mutual
+  theorem cnfOT_acc : ∀ (a : OT) (ha : normal a), Acc cnf_lt ⟨a, ha⟩
+    | OT.cnf as, normal.cnf nas => by
+      simpa [cnfList_as_cnfOT] using cnf_acc_of_list_acc ⟨as, nas⟩ (cnfOTList_acc as nas)
+  theorem cnfOTList_acc : ∀ (xs : List OT) (hxs : normalList xs), Acc cnfOTList_lt ⟨xs, hxs⟩
+    | [], normalList.nil => by exact nil_list_acc
+    | [x], normalList.singleton hx =>
+      by
+      have hx_acc : Acc cnf_lt (⟨x, hx⟩ : cnfOT) := cnfOT_acc x hx
+      exact
+        boundedList_acc (⟨x, hx⟩ : cnfOT) hx_acc ⟨[x], normalList.singleton hx⟩
+          (by
+            intro y hy
+            simp at hy
+            subst y
+            right
+            rfl)
+    | x :: y :: xs, normalList.cons hx htail hyx =>
+      by
+      have hx_acc : Acc cnf_lt (⟨x, hx⟩ : cnfOT) := cnfOT_acc x hx
+      exact
+        boundedList_acc (⟨x, hx⟩ : cnfOT) hx_acc ⟨x :: y :: xs, normalList.cons hx htail hyx⟩
+          (normalList_bounded_by_head (normalList.cons hx htail hyx))
+end`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:565:10: `simp at hy` is a flexible tactic modifying `hy`. Try `simp?` and use the suggested `simp only [...]`. Alternatively, use `suffices` to explicitly state the simplified form.
+
+Note: This linter can be disabled with `set_option linter.flexible false`
+info: Myproject/OrdinalNotationPohlers.lean:567:10: `right` uses `hy`!
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:17:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `theorem cnf_lt_acc : ∀ a : cnfOT, Acc cnf_lt a :=
+  by
+  intro a
+  rcases a with ⟨a, ha⟩
+  exact cnfOT_acc a ha`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:17:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `theorem cnf_lt_wf : WellFounded cnf_lt := by exact ⟨cnf_lt_acc⟩`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:17:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before `end OT`.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:1:1: * '-/':
+Copyright too short!
+
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+warning: Myproject/OrdinalNotationPohlers.lean:17:0: The module doc-string for a file should be the first command after the imports.
+Please, add a module doc-string before ``.
+
+Note: This linter can be disabled with `set_option linter.style.header false`
+Build completed successfully (8477 jobs).
