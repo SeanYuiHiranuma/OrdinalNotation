@@ -3724,6 +3724,157 @@ instance GapTreeEmbeds_isPreorder : IsPreorder GapTree GapTreeEmbeds where
   refl := GapTreeEmbeds_refl
   trans := by intro a b c hab hbc; exact GapTreeEmbeds_trans hab hbc
 
+namespace GapTree
+
+def RootAtLeast (k : GapLabel) : Set GapTree :=
+  {t | k ≤ rootLabel t}
+
+def RootIs (k : GapLabel) : Set GapTree :=
+  {t | rootLabel t = k}
+
+theorem rootIs_subset_rootAtLeast (k : GapLabel) : RootIs k ⊆ RootAtLeast k := by
+  intro t ht
+  change rootLabel t = k at ht
+  change k ≤ rootLabel t
+  rw [ht]
+
+inductive AdmissibleDescendant (k : GapLabel) : GapTree → GapTree → Prop where
+  | child {u : GapTree} {n : GapLabel} {before after : List GapTree}
+      (hlabel : k ≤ n) :
+      AdmissibleDescendant k u (.node n (before ++ u :: after))
+  | step {u v : GapTree} {n : GapLabel} {before after : List GapTree}
+      (hlabel : k ≤ n) (h : AdmissibleDescendant k u v) :
+      AdmissibleDescendant k u (.node n (before ++ v :: after))
+
+theorem AdmissibleDescendant_of_mem {k n : GapLabel} {u : GapTree}
+        {ts : List GapTree} (hlabel : k ≤ n) (hu : u ∈ ts) :
+        AdmissibleDescendant k u (.node n ts) := by
+  rw [List.mem_iff_append] at hu
+  obtain ⟨before, after, rfl⟩ := hu
+  exact AdmissibleDescendant.child hlabel
+
+theorem AdmissibleDescendant_trans {k : GapLabel} {u v t : GapTree}
+        (huv : AdmissibleDescendant k u v) (hvt : AdmissibleDescendant k v t) :
+        AdmissibleDescendant k u t := by
+  induction hvt generalizing u with
+  | child hlabel => exact AdmissibleDescendant.step hlabel huv
+  | step hlabel h ih => exact AdmissibleDescendant.step hlabel (ih huv)
+
+theorem AdmissibleDescendant_transComplexity_lt {k : GapLabel} {u t : GapTree}
+        (h : AdmissibleDescendant k u t) : transComplexity u < transComplexity t := by
+  induction h with
+  | child hlabel =>
+      simp only [transComplexity, transComplexityList_append, transComplexityList]
+      omega
+  | step hlabel h ih =>
+      simp only [transComplexity, transComplexityList_append, transComplexityList]
+      omega
+
+def MinimalBadSubtrees (k : GapLabel) (f : ℕ → GapTree) : Set GapTree :=
+  {u | ∃ n, AdmissibleDescendant k u (f n)}
+
+theorem mem_MinimalBadSubtrees_iff {k : GapLabel} {f : ℕ → GapTree} {u : GapTree} :
+        u ∈ MinimalBadSubtrees k f ↔ ∃ n, AdmissibleDescendant k u (f n) := by
+  rfl
+
+theorem mem_MinimalBadSubtrees_of_admissible {k : GapLabel} {f : ℕ → GapTree}
+        {u : GapTree} {n : ℕ} (h : AdmissibleDescendant k u (f n)) :
+        u ∈ MinimalBadSubtrees k f := by
+  exact ⟨n, h⟩
+
+/-- Admissible descendants extracted only from terms at or after `start`.  This indexed
+version is what the prefix-preserving minimal-bad-sequence splice needs. -/
+def MinimalBadSubtreesFrom (k : GapLabel) (f : ℕ → GapTree) (start : ℕ) : Set GapTree :=
+  {u | ∃ n, start ≤ n ∧ AdmissibleDescendant k u (f n)}
+
+theorem mem_MinimalBadSubtreesFrom_iff {k : GapLabel} {f : ℕ → GapTree}
+        {start : ℕ} {u : GapTree} :
+        u ∈ MinimalBadSubtreesFrom k f start ↔
+          ∃ n, start ≤ n ∧ AdmissibleDescendant k u (f n) := by
+  rfl
+
+theorem MinimalBadSubtreesFrom_subset {k : GapLabel} {f : ℕ → GapTree}
+        {start₁ start₂ : ℕ} (hstart : start₁ ≤ start₂) :
+        MinimalBadSubtreesFrom k f start₂ ⊆ MinimalBadSubtreesFrom k f start₁ := by
+  rintro u ⟨n, hn, hu⟩
+  exact ⟨n, hstart.trans hn, hu⟩
+
+theorem MinimalBadSubtreesFrom_subset_MinimalBadSubtrees {k : GapLabel}
+        {f : ℕ → GapTree} {start : ℕ} :
+        MinimalBadSubtreesFrom k f start ⊆ MinimalBadSubtrees k f := by
+  rintro u ⟨n, hn, hu⟩
+  exact ⟨n, hu⟩
+
+theorem mem_MinimalBadSubtreesFrom_complexity_lt {k : GapLabel} {f : ℕ → GapTree}
+        {start : ℕ} {u : GapTree} (hu : u ∈ MinimalBadSubtreesFrom k f start) :
+        ∃ n, start ≤ n ∧ transComplexity u < transComplexity (f n) := by
+  obtain ⟨n, hn, hadm⟩ := hu
+  exact ⟨n, hn, AdmissibleDescendant_transComplexity_lt hadm⟩
+
+/-- Replace the tail of `f` beginning at `cut` by the sequence `g`. -/
+def spliceAt (f g : ℕ → GapTree) (cut : ℕ) (n : ℕ) : GapTree :=
+  if n < cut then f n else g (n - cut)
+
+theorem spliceAt_eq_before {f g : ℕ → GapTree} {cut n : ℕ} (hn : n < cut) :
+        spliceAt f g cut n = f n := by
+  simp [spliceAt, hn]
+
+@[simp]
+theorem spliceAt_eq_add (f g : ℕ → GapTree) (cut n : ℕ) :
+        spliceAt f g cut (cut + n) = g n := by
+  simp [spliceAt]
+
+end GapTree
+
+theorem GapTreeEmbeds_descend_admissible {k : GapLabel} {s u t : GapTree}
+        (hs : s ∈ GapTree.RootIs k) (hsu : GapTreeEmbeds s u)
+        (hut : GapTree.AdmissibleDescendant k u t) : GapTreeEmbeds s t := by
+  induction hut generalizing s with
+  | child hlabel =>
+      apply GapTreeEmbeds.descend
+      · change GapTree.rootLabel s ≤ _
+        change GapTree.rootLabel s = k at hs
+        rw [hs]
+        exact hlabel
+      · exact hsu
+  | step hlabel h ih =>
+      apply GapTreeEmbeds.descend
+      · change GapTree.rootLabel s ≤ _
+        change GapTree.rootLabel s = k at hs
+        rw [hs]
+        exact hlabel
+      · exact ih hs hsu
+
+def GapForestOn (S : Set GapTree) (ts : List GapTree) : Prop :=
+  ∀ t, t ∈ ts → t ∈ S
+
+theorem GapForestEmbeds_of_sublistForall₂ {ss ts : List GapTree}
+        (h : List.SublistForall₂ GapTreeEmbeds ss ts) : GapForestEmbeds ss ts := by
+  induction h with
+  | nil => exact GapForestEmbeds.nil
+  | @cons s t ss ts hst hrest ih =>
+      simpa using GapForestEmbeds.cons (before := []) (after := ts) hst ih
+  | @cons_right t ss ts hrest ih =>
+      exact GapForestEmbeds_weaken_cons ih t
+
+theorem GapForestEmbeds_partiallyWellOrderedOn {S : Set GapTree}
+        (hS : S.PartiallyWellOrderedOn GapTreeEmbeds) :
+        {ts : List GapTree | GapForestOn S ts}.PartiallyWellOrderedOn GapForestEmbeds := by
+  have hLists :=
+    Set.PartiallyWellOrderedOn.partiallyWellOrderedOn_sublistForall₂
+      GapTreeEmbeds hS
+  rw [Set.partiallyWellOrderedOn_iff_exists_lt] at hLists ⊢
+  intro f hf
+  obtain ⟨i, j, hij, hsub⟩ := hLists f hf
+  exact ⟨i, j, hij, GapForestEmbeds_of_sublistForall₂ hsub⟩
+
+theorem GapForestEmbeds_wqo_of_tree_wqo
+        (hTree : WellQuasiOrdered GapTreeEmbeds) :
+        WellQuasiOrdered GapForestEmbeds := by
+  rw [← Set.partiallyWellOrderedOn_univ_iff] at hTree ⊢
+  have hForest := GapForestEmbeds_partiallyWellOrderedOn hTree
+  simpa [GapForestOn] using hForest
+
 def GapTreeEmbeds_strict (s t : GapTree) : Prop :=
   GapTreeEmbeds s t ∧ ¬ GapTreeEmbeds t s
 
@@ -6390,14 +6541,10 @@ theorem principal_lt_map {p q : _root_.principal}
       omega
 
 
-theorem principal_normal_map
-    {p : _root_.principal}
-    (hp : principal_normal p) :
-    FreundTerm_normal (principal p) := by
+theorem principal_normal_map {p : _root_.principal} (hp : principal_normal p) :
+        FreundTerm_normal (principal p) := by
   cases hp with
-  | psi harg hcoeff =>
-      rw [principal_psi]
-      exact FreundTerm_normal.theta (omega_normal_map harg)
+  | psi harg hcoeff => rw [principal_psi]; exact FreundTerm_normal.theta (omega_normal_map harg)
   termination_by principal_cmplx p + 8
   decreasing_by
     all_goals
@@ -6405,39 +6552,28 @@ theorem principal_normal_map
       simp only [principal_cmplx]
       omega
 
-theorem principal_le_map
-    {p q : _root_.principal}
-    (hp : principal_normal p)
-    (hq : principal_normal q)
-    (h : p ≤p q) :
-    principal p ≤f principal q := by
+theorem principal_le_map {p q : _root_.principal} (hp : principal_normal p)
+        (hq : principal_normal q) (h : p ≤p q) :
+        principal p ≤f principal q := by
   rcases h with h | h
   · exact Or.inl (principal_lt_map hp hq h)
   · exact Or.inr (principal_eq_map_eq h)
-
-  termination_by
-    principal_cmplx p + principal_cmplx q + 1
-
+  termination_by principal_cmplx p + principal_cmplx q + 1
   decreasing_by
     all_goals
       omega
 
 
-theorem principalList_normal_map
-    {ps : List _root_.principal}
-    (hps : principalList_normal ps) :
-    FreundTermList_normal (principalList ps) := by
+theorem principalList_normal_map {ps : List _root_.principal} (hps : principalList_normal ps) :
+        FreundTermList_normal (principalList ps) := by
   cases ps with
-  | nil =>
-      exact FreundTermList_normal.nil
+  | nil => exact FreundTermList_normal.nil
   | cons p ps =>
       cases ps with
       | nil =>
           cases hps with
           | singleton hp =>
-              exact
-                FreundTermList_normal.single
-                  (principal_normal_map hp)
+              exact FreundTermList_normal.single (principal_normal_map hp)
       | cons q qs =>
           cases hps with
           | cons hp htail hpq =>
@@ -6458,19 +6594,13 @@ theorem principalList_normal_map
                       (principalList_normal.cons hp htail hpq)
                       r
                       (by simp [hr]))
-
-  termination_by
-    principalList_cmplx ps + 8
-
+  termination_by principalList_cmplx ps + 8
   decreasing_by
     all_goals
       subst_vars
       try have hrC :=
         principal_cmplx_lt_of_mem hr
-      simp only [
-        principalList_cmplx,
-        principal_cmplx
-      ] at *
+      simp only [principalList_cmplx, principal_cmplx] at *
       omega
 
 
@@ -6598,6 +6728,38 @@ axiom GapTreeEmbeds_wqo : WellQuasiOrdered GapTreeEmbeds
 -- Well-foundedness of the normal countable ordinal notation system.
 theorem NormalCountableOrd_lt_wf : WellFounded NormalCountableOrd_lt := by
   exact NormalCountableOrd_lt_wf_of_gap_wqo GapTreeEmbeds_wqo
+
+/-
+GapTree.AdmissibleDescendant_transComplexity_lt
+GapTree.MinimalBadSubtrees
+GapTree.mem_MinimalBadSubtrees_iff
+GapTree.mem_MinimalBadSubtrees_of_admissible
+GapTree.MinimalBadSubtreesFrom
+GapTree.mem_MinimalBadSubtreesFrom_iff
+GapTree.MinimalBadSubtreesFrom_subset
+GapTree.MinimalBadSubtreesFrom_subset_MinimalBadSubtrees
+GapTree.mem_MinimalBadSubtreesFrom_complexity_lt
+GapTree.spliceAt
+GapTree.spliceAt_eq_before
+GapTree.spliceAt_eq_add
+
+New definitions:
+- GapTree.properDescendants
+- GapTree.properDescendantsList
+- GapTree.nextAdmissibleWitness
+- GapTree.admissibleWitnessPairs
+New theorems:
+- GapTree.properDescendantsList_append
+- GapTree.AdmissibleDescendant_mem_properDescendants
+- GapTree.admissibleDescendants_finite
+- GapTree.MinimalBadSubtrees_bounded_finite
+- GapTreeEmbeds_badSeq_injective
+- GapTree.badSeq_has_late_admissible_witness
+- GapTree.nextAdmissibleWitness_spec
+- GapTree.admissibleWitnessPairs_lt_succ
+- GapTree.admissibleWitnessPairs_admissible
+- GapTree.exists_bad_admissible_subsequence
+-/
 --========================================================================================
 -- Some Notes
 --========================================================================================
