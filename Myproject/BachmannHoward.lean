@@ -7972,11 +7972,10 @@ theorem exists_KruskalSubtypeLiftList {X : Type} {S : Set X}
 termination_by
   2 * KruskalTree.transComplexityList ts + 1
 decreasing_by
-  all_goals
-    subst_vars
-    have htPos : 0 < KruskalTree.transComplexity t :=
-      KruskalTree.transComplexity_pos t
-    simp [KruskalTree.transComplexity, KruskalTree.transComplexityList] at * <;> omega
+  all_goals simp_all only [KruskalTree.transComplexityList]
+  all_goals have htPos : 0 < KruskalTree.transComplexity t :=
+    KruskalTree.transComplexity_pos t
+  all_goals omega
 end
 
 -- Restricted Kruskal Theorem
@@ -8087,17 +8086,377 @@ theorem Kruskal2MinusEmbeds_wqo :
 theorem Kruskal2Embeds_wqo :
         WellQuasiOrdered Kruskal2Embeds := by
   exact KruskalTreeEmbeds_wqo Kruskal2MinusEmbeds_wqo
-
-
 end GapTree
 
+--========================================================================================
+-- Encoding GapTree into Kruskals
+--========================================================================================
+/- The objective here is to map GapTree objects into the image of Kruskal2s. Is we can map
+   it with some sort of structure reflection, we can pull-back the proven WQO property in
+   Kruskal2s into the realm of GapTree. That will prove the WQO of GapTrees that will
+   naturally lead to proving the well-foundedness of our original BH ordinal notation,
+   NormalCountabelOrd. -/
+-- Encoding map
+/- A label-0 GapTree node is represented by a base object of the outer Kruskal layer, whose
+   base value is Kruskal2Minus node. A label-1 GapTree node is represented by an ordinary
+   node of the outer Kruskal layer. -/
+namespace GapTree
+mutual
+def toKruskal2 : GapTree → Kruskal2
+  | .node n ts => if n = 0 then .base (.node (forestToKruskal2 ts))
+                  else .node (forestToKruskal2 ts)
+def forestToKruskal2 : List GapTree → List Kruskal2
+  | [] => []
+  | t :: ts => toKruskal2 t :: forestToKruskal2 ts
+end
+-- Basics
+-- A label-0 GapTree is encoded to a base containing a Kruskal2Minus node
+@[simp]
+theorem toKruskal2_zero (ts : List GapTree) :
+        toKruskal2 (.node (0 : GapLabel) ts) = .base (.node (forestToKruskal2 ts)) := by
+  simp [toKruskal2]
+-- A label-1 GapTree becomes an ordinary node of the outer Kruskal layer.
+@[simp]
+theorem toKruskal2_one (ts : List GapTree) :
+        toKruskal2 (.node (1 : GapLabel) ts) = .node (forestToKruskal2 ts) := by
+  simp [toKruskal2]
+-- Encoding a concatenated GapForest is the concatenation
+-- of the two encoded forests.
+@[simp]
+theorem forestToKruskal2_append (ss ts : List GapTree) :
+        forestToKruskal2 (ss ++ ts) = forestToKruskal2 ss ++ forestToKruskal2 ts := by
+  induction ss with
+  | nil => rfl
+  | cons s ss ih => simp [forestToKruskal2, ih]
+-- Encoding a forest is the same as mapping the tree encoding over it.
+theorem forestToKruskal2_eq_map (ts : List GapTree) :
+        forestToKruskal2 ts = ts.map toKruskal2 := by
+  induction ts with
+  | nil => rfl
+  | cons t ts ih => simp [forestToKruskal2, ih]
+-- An encoded tree occurs in the encoded forest whenever
+-- the original tree occurs in the original forest.
+theorem toKruskal2_mem_forestToKruskal2 {t : GapTree} {ts : List GapTree} (ht : t ∈ ts) :
+        toKruskal2 t ∈ forestToKruskal2 ts := by
+  rw [forestToKruskal2_eq_map]; exact List.mem_map.mpr ⟨t, ht, rfl⟩
+-- If t ∈ ts, then ts can be split as before ++ t :: after
+theorem exists_split_of_mem {α : Type} {t : α} {ts : List α} (ht : t ∈ ts) :
+        ∃ before after, ts = before ++ t :: after := by
+  induction ts with
+  | nil => simp at ht
+  | cons u us ih =>
+    simp only [List.mem_cons] at ht
+    rcases ht with rfl | ht
+    · exact ⟨[], us, by simp⟩
+    · obtain ⟨before, after, hus⟩ := ih ht
+      refine ⟨u :: before, after, ?_⟩; simp [hus]
+/- If s embeds into a child t of a GapTree and the strong-gap
+   label condition is satisfied, then s embeds into the parent.  -/
+theorem GapTreeEmbeds_into_parent_of_mem {s t : GapTree} {n : GapLabel} {ts : List GapTree}
+        (ht : t ∈ ts) (hlabel : GapTree.rootLabel s ≤ n) (hst : GapTreeEmbeds s t) :
+        GapTreeEmbeds s (.node n ts) := by
+  obtain ⟨before, after, hts⟩ := exists_split_of_mem ht
+  rw [hts] -- GapTreeEmbeds s (.node n (before ++ t :: after))
+  exact GapTreeEmbeds.descend hlabel hst
+/- If a Kruskal2Minus base x occurs somewhere in the encoding of t,
+   then x comes from an actual label-0 GapTree u which embeds into t.
+   So, x occurring in toKruskal2 t implies that there exists u such that
+   rootLabel u = label0, toKruskal2 u = base x, and GapTreeEmbeds u t-/
+mutual
+theorem KruskalBaseOccurs_toKruskal2 {x : Kruskal2Minus} {t : GapTree}
+        (hx : KruskalBaseOccurs x (toKruskal2 t)) :
+        ∃ u : GapTree, GapTree.rootLabel u = GapTree.label0 ∧
+        toKruskal2 u = (.base x : Kruskal2) ∧
+        GapTreeEmbeds u t := by
+  cases t with
+  | node n ts =>
+    by_cases hn : n = GapTree.label0
+    -- Root is 0
+    · subst n
+      have hx' : KruskalBaseOccurs x (.base (.node (forestToKruskal2 ts))) := by
+        simpa [toKruskal2] using hx
+      cases hx' with
+      | base => refine ⟨.node GapTree.label0 ts, ?_, ?_, ?_⟩
+                · rfl
+                · simp [toKruskal2, GapTree.label0]
+                · exact GapTreeEmbeds_refl (.node GapTree.label0 ts)
+    · have hn0 : n ≠ (0 : GapLabel) := by
+        intro hn0
+        apply hn
+        simpa [GapTree.label0] using hn0
+      have hx' : KruskalBaseOccurs x (.node (forestToKruskal2 ts) : Kruskal2) := by
+        simpa [toKruskal2, hn0] using hx
+      cases hx' with
+      | @node kt _ hkt hxkt =>
+        have hxForest : KruskalBaseOccursForest x (forestToKruskal2 ts) := by
+          exact ⟨kt, hkt, hxkt⟩
+        obtain ⟨t, u, ht, huRoot, huEncode, hut⟩ :=
+          KruskalBaseOccursForest_forestToKruskal2 hxForest
+        refine ⟨u, huRoot, huEncode, ?_⟩
+        apply GapTreeEmbeds_into_parent_of_mem ht
+        · rw [huRoot]; exact GapTree_label0_le n
+        · exact hut
 
+theorem KruskalBaseOccursForest_forestToKruskal2 {x : Kruskal2Minus} {ts : List GapTree}
+        (hx : KruskalBaseOccursForest x (forestToKruskal2 ts)) :
+        ∃ t u : GapTree, t ∈ ts ∧
+        GapTree.rootLabel u = GapTree.label0 ∧
+        toKruskal2 u = (.base x : Kruskal2) ∧
+        GapTreeEmbeds u t := by
+  cases ts with
+  | nil =>
+    obtain ⟨kt, hkt, _⟩ := hx; simp [forestToKruskal2] at hkt
+  | cons t ts =>
+    obtain ⟨kt, hkt, hxkt⟩ := hx
+    simp only [ forestToKruskal2, List.mem_cons] at hkt
+    rcases hkt with rfl | hkt
+    -- x occurs in the encoding of the head t.
+    · obtain ⟨u, huRoot, huEncode, hut⟩ := KruskalBaseOccurs_toKruskal2 hxkt
+      exact ⟨t, u, List.mem_cons_self, huRoot, huEncode, hut⟩
+    -- x occurs somewhere in the encoded tail.
+    · have hxTail : KruskalBaseOccursForest x (forestToKruskal2 ts) := by
+        exact ⟨kt, hkt, hxkt⟩
+      obtain ⟨v, u, hv, huRoot, huEncode, huv⟩ :=
+        KruskalBaseOccursForest_forestToKruskal2 hxTail
+      exact ⟨v, u, List.mem_cons_of_mem t hv, huRoot,
+           huEncode, huv⟩
+end
+/- If forestToKruskal2 ts = before ++ k :: after, then this splitting already came from a
+   splitting of the original GapTree forest. -/
+theorem forstToKruskal2_split {ts : List GapTree} {before after : List Kruskal2} {k : Kruskal2}
+        (h : forestToKruskal2 ts = before ++ k :: after) :
+        ∃ before' t after', ts = before' ++ t :: after' ∧
+        forestToKruskal2 before' = before ∧
+        toKruskal2 t = k ∧ forestToKruskal2 after' = after := by
+induction ts generalizing before with
+| nil => simp [forestToKruskal2] at h
+| cons t ts ih =>
+  cases before with
+  | nil => simp only [forestToKruskal2, List.nil_append, List.cons.injEq] at h
+           rcases h with ⟨ht, htail⟩
+           exact ⟨[], t, ts, by simp, rfl, ht, htail⟩
+  | cons b before => simp only [forestToKruskal2, List.cons_append, List.cons.injEq] at h
+                     rcases h with ⟨htb, hrest⟩
+                     obtain ⟨before', u, after', hts, hbefore, hu, hafter⟩ :=
+                      ih hrest
+                     refine ⟨t :: before', u, after', ?_, ?_, hu, hafter⟩
+                     · simp [hts]
+                     · simp [forestToKruskal2, htb, hbefore]
 
-
-
-
-
-
+-- The complexity of a member of a forest is bounded by the total complexity of the forest.
+theorem transComplexity_le_list_of_mem {t : GapTree} {ts : List GapTree} (ht : t ∈ ts) :
+        GapTree.transComplexity t ≤ GapTree.transComplexityList ts := by
+  induction ts with
+  | nil => simp at ht
+  | cons u us ih =>
+      simp only [List.mem_cons] at ht
+      rcases ht with rfl | ht
+      · simp [GapTree.transComplexityList]
+      · have h := ih ht
+        simp [GapTree.transComplexityList]
+        omega
+/- 1. Kruskal2 embedding between encoded trees reflects to GapTreeEmbeds.
+   2. Kruskal2 forest embedding between encoded forests reflects to GapForestEmbeds.
+   3. Kruskal2Minus embedding between encoded label-0 nodes reflects to GapTreeEmbeds. -/
+mutual
+theorem toKruskal2_reflects_embeds {s t : GapTree}
+        (h : Kruskal2Embeds (toKruskal2 s) (toKruskal2 t)) :
+        GapTreeEmbeds s t := by
+  cases s with
+  | node ns ss =>
+    cases t with
+    | node nt ts =>
+      fin_cases ns
+      -- Source root = 0
+      · fin_cases nt
+        -- 0 embeds into 0
+        · change Kruskal2Embeds (.base (.node (forestToKruskal2 ss)))
+            (.base (.node (forestToKruskal2 ts))) at h
+          cases h with
+          | base hminus =>
+              have hreflect := Kruskal2MinusEmbeds_reflects hminus
+              simpa [GapTree.label0] using hreflect
+        -- 0 embeds into 1
+        · change Kruskal2Embeds (.base (.node (forestToKruskal2 ss)))
+            (.node (forestToKruskal2 ts)) at h
+          generalize htarget : forestToKruskal2 ts = target at h
+          cases h with
+          | @descend _ kt before after hsub =>
+              have hsplit : forestToKruskal2 ts = before ++ kt :: after := by
+                exact htarget
+              obtain ⟨before', u, after', hts, hbefore, huEncode, hafter⟩ :=
+                forstToKruskal2_split hsplit
+              have huMem : u ∈ ts := by
+                rw [hts]
+                simp
+              have huLe : GapTree.transComplexity u ≤
+                  GapTree.transComplexityList ts :=
+                transComplexity_le_list_of_mem huMem
+              have hsub' : Kruskal2Embeds (toKruskal2 (.node (0 : GapLabel) ss))
+                  (toKruskal2 u) := by
+                rw [huEncode]
+                change Kruskal2Embeds (.base (.node (forestToKruskal2 ss))) kt
+                exact hsub
+              have hGap : GapTreeEmbeds (.node (0 : GapLabel) ss) u :=
+                toKruskal2_reflects_embeds hsub'
+              have hlabel : GapTree.rootLabel (.node (0 : GapLabel) ss) ≤
+                  (1 : GapLabel) := by
+                simp [GapTree.rootLabel]
+              exact GapTreeEmbeds_into_parent_of_mem huMem hlabel hGap
+      -- Source root = 1
+      · fin_cases nt
+        -- 1 cannot embed into an encoded 0-root through Kruskal2.
+        -- The target is a base, while the source is an outer node.
+        · change Kruskal2Embeds (.node (forestToKruskal2 ss))
+            (.base (.node (forestToKruskal2 ts))) at h
+          cases h
+        -- 1 embeds into 1
+        · change Kruskal2Embeds (.node (forestToKruskal2 ss))
+            (.node (forestToKruskal2 ts)) at h
+          generalize htarget : forestToKruskal2 ts = target at h
+          cases h with
+          -- Same root: reflect the child-forest embedding.
+          | root hforest =>
+              rw [← htarget] at hforest
+              have hGapForest : GapForestEmbeds ss ts :=
+                forestToKruskal2_reflects_embeds hforest
+              exact GapTreeEmbeds.root hGapForest
+          -- Kruskal descent through another label-1 node.
+          | @descend _ kt before after hsub =>
+              have hsplit : forestToKruskal2 ts = before ++ kt :: after := by
+                exact htarget
+              obtain ⟨before', u, after', hts, hbefore, huEncode, hafter⟩ :=
+                forstToKruskal2_split hsplit
+              have huMem : u ∈ ts := by
+                rw [hts]
+                simp
+              have huLe : GapTree.transComplexity u ≤
+                  GapTree.transComplexityList ts :=
+                transComplexity_le_list_of_mem huMem
+              have hsub' : Kruskal2Embeds (toKruskal2 (.node (1 : GapLabel) ss))
+                  (toKruskal2 u) := by
+                rw [huEncode]
+                change Kruskal2Embeds (.node (forestToKruskal2 ss)) kt
+                exact hsub
+              have hGap : GapTreeEmbeds (.node (1 : GapLabel) ss) u :=
+                toKruskal2_reflects_embeds hsub'
+              have hlabel : GapTree.rootLabel (.node (1 : GapLabel) ss) ≤
+                  (1 : GapLabel) := by
+                exact le_rfl
+              exact GapTreeEmbeds_into_parent_of_mem huMem hlabel hGap
+  termination_by 4 * (GapTree.transComplexity s + GapTree.transComplexity t)
+  decreasing_by
+    all_goals
+      subst_vars
+      simp only [GapTree.transComplexity, GapTree.transComplexityList] at *
+      omega
+-- Forest Reflection
+theorem forestToKruskal2_reflects_embeds
+        {ss ts : List GapTree}
+        (h : Kruskal2ForestEmbeds (forestToKruskal2 ss) (forestToKruskal2 ts)) :
+        GapForestEmbeds ss ts := by
+  cases ss with
+  | nil => exact GapForestEmbeds.nil
+  | cons s ss =>
+      change Kruskal2ForestEmbeds (toKruskal2 s :: forestToKruskal2 ss)
+        (forestToKruskal2 ts) at h
+      generalize htarget : forestToKruskal2 ts = target at h
+      cases h with
+      | @cons _ kt _ before after hst hrest =>
+          have hsplit : forestToKruskal2 ts = before ++ kt :: after := by
+            exact htarget
+          obtain ⟨before', t, after', hts, hbefore, htEncode, hafter⟩ :=
+            forstToKruskal2_split hsplit
+          have htMem : t ∈ ts := by
+            rw [hts]
+            simp
+          have htLe : GapTree.transComplexity t ≤
+              GapTree.transComplexityList ts :=
+            transComplexity_le_list_of_mem htMem
+          have hTreeK : Kruskal2Embeds (toKruskal2 s) (toKruskal2 t) := by
+            rw [htEncode]
+            exact hst
+          have hTree : GapTreeEmbeds s t :=
+            toKruskal2_reflects_embeds hTreeK
+          have hRestK : Kruskal2ForestEmbeds (forestToKruskal2 ss)
+              (forestToKruskal2 (before' ++ after')) := by
+            rw [forestToKruskal2_append]
+            rw [hbefore, hafter]
+            exact hrest
+          have htPos : 0 < GapTree.transComplexity t :=
+            GapTree.transComplexity_pos t
+          have hRestSmall : GapTree.transComplexityList (before' ++ after') <
+              GapTree.transComplexityList ts := by
+            rw [hts]
+            simp [GapTree.transComplexityList,
+              GapTree.transComplexityList_append]
+            omega
+          have hRest : GapForestEmbeds ss (before' ++ after') :=
+            forestToKruskal2_reflects_embeds hRestK
+          rw [hts]
+          exact GapForestEmbeds.cons (s := s) (t := t) (ss := ss)
+            (before := before') (after := after') hTree hRest
+  termination_by 4 * (GapTree.transComplexityList ss +
+    GapTree.transComplexityList ts) + 2
+  decreasing_by
+    all_goals
+      subst_vars
+      simp only [GapTree.transComplexityList] at *
+      omega
+-- Label-0 / T₂⁻ Reflection
+theorem Kruskal2MinusEmbeds_reflects
+        {ss ts : List GapTree}
+        (h : Kruskal2MinusEmbeds (.node (forestToKruskal2 ss))
+          (.node (forestToKruskal2 ts))) :
+        GapTreeEmbeds (.node GapTree.label0 ss) (.node GapTree.label0 ts) := by
+  cases h with
+  -- Same label-0 root.
+  | root hforest =>
+      have hGapForest : GapForestEmbeds ss ts :=
+        forestToKruskal2_reflects_embeds hforest
+      exact GapTreeEmbeds.root hGapForest
+  -- T₂⁻ descent.
+  -- u occurs underneath outer Kruskal nodes.
+  -- By the occurrence-reflection lemma, u therefore corresponds to an
+  -- actual label-0 GapTree v occurring below one of the target children.
+  | @descend _ u _ hu hsub =>
+      obtain ⟨t, v, ht, hvRoot, hvEncode, hvt⟩ :=
+        KruskalBaseOccursForest_forestToKruskal2 hu
+      cases v with
+      | node nv vs =>
+          simp only [GapTree.rootLabel] at hvRoot
+          subst nv
+          have huEq : (.node (forestToKruskal2 vs) : Kruskal2Minus) = u := by
+            simpa [toKruskal2, GapTree.label0] using hvEncode
+          rw [← huEq] at hsub
+          have hvtComp : GapTree.transComplexity (.node GapTree.label0 vs) ≤
+              GapTree.transComplexity t :=
+            FreundTerm.GapTreeEmbeds_transComplexity_le hvt
+          have htComp : GapTree.transComplexity t ≤
+              GapTree.transComplexityList ts :=
+            transComplexity_le_list_of_mem ht
+          have hvsSmall : GapTree.transComplexityList vs <
+              GapTree.transComplexityList ts := by
+            simp only [GapTree.transComplexity] at hvtComp
+            omega
+          have hsv : GapTreeEmbeds (.node GapTree.label0 ss)
+              (.node GapTree.label0 vs) :=
+            Kruskal2MinusEmbeds_reflects hsub
+          have hst : GapTreeEmbeds (.node GapTree.label0 ss) t :=
+            GapTreeEmbeds_trans hsv hvt
+          have hlabel : GapTree.rootLabel (.node GapTree.label0 ss) ≤
+              GapTree.label0 := by
+            exact le_rfl
+          exact GapTreeEmbeds_into_parent_of_mem ht hlabel hst
+  termination_by 4 * (GapTree.transComplexityList ss +
+    GapTree.transComplexityList ts) + 3
+  decreasing_by
+    all_goals
+      subst_vars
+      simp only [GapTree.transComplexity, GapTree.transComplexityList] at *
+      omega
+end
+end GapTree
 
 
 
@@ -8120,7 +8479,12 @@ theorem NormalCountableOrd_lt_wf_of_gap_wqo (hGap : WellQuasiOrdered GapTreeEmbe
         WellFounded NormalCountableOrd_lt := by
   exact NormalCountableOrd_lt_wf_of_principal_wf (NormalPrincipal_lt_wf hGap)
 -- Strong-gap well-quasi-ordering of finite two-labelled trees.
-axiom GapTreeEmbeds_wqo : WellQuasiOrdered GapTreeEmbeds
+theorem GapTreeEmbeds_wqo : WellQuasiOrdered GapTreeEmbeds := by
+  intro f
+  obtain ⟨i, j, hij, hKruskal⟩ := GapTree.Kruskal2Embeds_wqo
+      (fun n => GapTree.toKruskal2 (f n))
+  refine ⟨i, j, hij, ?_⟩
+  exact GapTree.toKruskal2_reflects_embeds hKruskal
 -- Well-foundedness of the normal countable ordinal notation system.
 theorem NormalCountableOrd_lt_wf : WellFounded NormalCountableOrd_lt := by
   exact NormalCountableOrd_lt_wf_of_gap_wqo GapTreeEmbeds_wqo
