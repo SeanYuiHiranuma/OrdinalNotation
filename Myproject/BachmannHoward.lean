@@ -6724,15 +6724,22 @@ theorem GapForestEmbeds_partiallyWellOrderedOn {S : Set GapTree}
   intro f hf
   obtain ⟨i, j, hij, hsub⟩ := hHigman f hf
   exact ⟨i, j, hij, GapForestEmbeds_of_sublistForall₂ hsub⟩
+end GapTree
 --=================================================================================================
 -- Kruskal Trees
 --=================================================================================================
-/-
-base x to mean simply just x
-node [t₀, t₁, ..., t_n] to mean
+/- We introduce a concept that is already proven to be well-quasi-ordered : the Kruskal tree.
+   Kruskal's theorem says roughly if the possible base labels X are WQO, then finite trees
+   constructed from X are also WQO under tree embedding. So, (X,r) is WQO → (KruskalTree(X),
+   KruskalTreeEmbeds(r)) is WQO.
+   base x to mean simply just x
+   node [t₀, t₁, ..., t_n] to mean
            (node)
           /  |  \
          t₀ ... t_n
+   Our GapTree is simply a Kruskal Tree with an extra condition of strong gap restriction. Fruend,
+   in his paper, introduces the idea that the gap condition can be reconstructed by iterated
+   applications of uniform Kruskal theorem.
 -/
 inductive KruskalTree (X : Type) where
   | base : X → KruskalTree X
@@ -6756,7 +6763,1340 @@ inductive KruskalForestEmbeds {X : Type} (r : X → X → Prop) :
          (hrest : KruskalForestEmbeds r ss (before ++ after)) :
     KruskalForestEmbeds r (s :: ss) (before ++ t :: after)
 end
+-- Reflexive
+mutual
+theorem KruskalTreeEmbeds_refl {X : Type} {r : X → X → Prop} [IsPreorder X r] (t : KruskalTree X) :
+        KruskalTreeEmbeds r t t := by
+  cases t with
+  | base x => exact KruskalTreeEmbeds.base (refl x)
+  | node xs => apply KruskalTreeEmbeds.root; exact KruskalForestEmbeds_refl xs
+theorem KruskalForestEmbeds_refl {X : Type} {r : X → X → Prop} [IsPreorder X r]
+        (ts : List (KruskalTree X)) :
+        KruskalForestEmbeds r ts ts := by
+  cases ts with
+  | nil => exact KruskalForestEmbeds.nil
+  | cons t ts =>
+    have ht : KruskalTreeEmbeds r t t := KruskalTreeEmbeds_refl t
+    have hts : KruskalForestEmbeds r ts ts := KruskalForestEmbeds_refl ts
+    simpa using (KruskalForestEmbeds.cons (s := t) (t := t) (ss := ts) (before := [])
+                 (after := ts) ht hts)
+end
+-- If s embeds into t, then s embeds into any node having t as a child
+theorem KruskalTreeEmbeds_into_parent {X : Type} {r : X → X → Prop} {s t : KruskalTree X}
+        {before after : List (KruskalTree X)} (h : KruskalTreeEmbeds r s t) :
+        KruskalTreeEmbeds r s (.node (before ++ t :: after)) := by
+  exact KruskalTreeEmbeds.descend h
+-- Adding a tree to a list of tree ts where a forest already embeds, it still embeds
+theorem KruskalForestEmbeds_weaken_cons {X : Type} {r : X → X → Prop}
+        {ss ts : List (KruskalTree X)} (h : KruskalForestEmbeds r ss ts)
+        (u : KruskalTree X) : KruskalForestEmbeds r ss (u :: ts) := by
+  cases h with
+  | nil => exact KruskalForestEmbeds.nil
+  | @cons s t ss before after hst hrest =>
+    apply KruskalForestEmbeds.cons (s := s) (t := t) (ss := ss) (before := u :: before)
+          (after := after)
+    · exact hst
+    · simpa using KruskalForestEmbeds_weaken_cons hrest u
+-- Adding a prefix
+theorem KruskalForestEmbeds_weaken_prefix {X : Type} {r : X → X → Prop}
+        {ss ts : List (KruskalTree X)} (h : KruskalForestEmbeds r ss ts)
+        (us : List (KruskalTree X)) :
+        KruskalForestEmbeds r ss (us ++ ts) := by
+  induction us with
+  | nil => simpa using h
+  | cons u us ih => simpa using KruskalForestEmbeds_weaken_cons ih u
+-- Adding a suffix
+theorem KruskalForestEmbeds_weaken_suffix {X : Type} {r : X → X → Prop}
+        {ss ts : List (KruskalTree X)} (h : KruskalForestEmbeds r ss ts)
+        (us : List (KruskalTree X)) :
+        KruskalForestEmbeds r ss (ts ++ us) := by
+  cases h with
+  | nil => exact KruskalForestEmbeds.nil
+  | @cons s t ss before after hst hrest =>
+      have hrest' : KruskalForestEmbeds r ss (before ++ (after ++ us)) := by
+        simpa [List.append_assoc] using KruskalForestEmbeds_weaken_suffix hrest us
+      have hcons : KruskalForestEmbeds r (s :: ss)
+                   (before ++ t :: (after ++ us)) := by
+        exact KruskalForestEmbeds.cons (s := s) (t := t) (ss := ss)
+              (before := before) (after := after ++ us) hst hrest'
+      simpa [List.append_assoc] using hcons
+-- Adding for both ends
+theorem KruskalForestEmbeds_weaken {X : Type} {r : X → X → Prop}
+        {ss ts : List (KruskalTree X)} (h : KruskalForestEmbeds r ss ts)
+        (before after : List (KruskalTree X)) :
+        KruskalForestEmbeds r ss (before ++ ts ++ after) := by
+  have hprefix : KruskalForestEmbeds r ss (before ++ ts) :=
+    KruskalForestEmbeds_weaken_prefix h before
+  exact KruskalForestEmbeds_weaken_suffix hprefix after
+/- If a tree is a member of a forest that embeds into another forest, the tree embeds
+   into some member of the last forest -/
+theorem KruskalForestEmbeds_exists_of_mem {X : Type} {r : X → X → Prop}
+        {ss ts : List (KruskalTree X)} (h : KruskalForestEmbeds r ss ts)
+        {s : KruskalTree X} (hs : s ∈ ss) :
+        ∃ t, t ∈ ts ∧ KruskalTreeEmbeds r s t := by
+  cases h with
+  | nil => simp at hs
+  | @cons s' t' ss before after hst hrest =>
+    simp only [List.mem_cons] at hs
+    rcases hs with rfl | hs
+    · refine ⟨t', ?_, hst⟩; simp
+    · obtain ⟨t, ht, hst'⟩ := KruskalForestEmbeds_exists_of_mem hrest hs
+      refine ⟨t, ?_, hst'⟩
+      simp only [List.mem_append, List.mem_cons] at ht ⊢
+      rcases ht with ht | ht
+      · exact Or.inl ht
+      · exact Or.inr (Or.inr ht)
+-- Spotting the target tree in a forest
+theorem KruskalForestEmbeds_head {X : Type} {r : X → X → Prop} {s : KruskalTree X}
+        {ss ts : List (KruskalTree X)} (h : KruskalForestEmbeds r (s :: ss) ts) :
+        ∃ t before after, ts = before ++ t :: after ∧ KruskalTreeEmbeds r s t ∧
+                          KruskalForestEmbeds r ss (before ++ after) := by
+  cases h with
+  | @cons s t ss before after hst hrest =>
+    exact ⟨t, before, after, rfl, hst, hrest⟩
+-- Rewrites a list with a distinguished middle element as a multiset with that element singled out.
+theorem Kruskal_multiset_coe_middle {X : Type} (before after : List (KruskalTree X))
+        (t : KruskalTree X) :
+        (↑(before ++ (t :: after)) : Multiset (KruskalTree X)) =
+          t ::ₘ (↑(before ++ after) : Multiset (KruskalTree X)) := by
+  rw [← Multiset.coe_add before (t :: after)]
+  rw [← Multiset.coe_add before after]
+  rw [← Multiset.cons_coe t after]
+  rw [← Multiset.singleton_add t (↑after : Multiset (KruskalTree X))]
+  rw [← Multiset.singleton_add t
+    ((↑before : Multiset (KruskalTree X)) +
+      (↑after : Multiset (KruskalTree X)))]
+  ac_rfl
+-- Converts a Kruskal forest embedding into a multiset matching contained in the target multiset.
+theorem KruskalForestEmbeds_to_multiset {X : Type} {r : X → X → Prop} {ss ts : List (KruskalTree X)}
+        (h : KruskalForestEmbeds r ss ts) :
+        ∃ us : Multiset (KruskalTree X), Multiset.Rel (KruskalTreeEmbeds r)
+         (↑ss : Multiset (KruskalTree X)) us ∧ us ≤ (↑ts : Multiset (KruskalTree X)) := by
+  cases h with
+  | nil => exact ⟨0, Multiset.Rel.zero, Multiset.zero_le _⟩
+  | @cons s t ss before after hst hrest =>
+      obtain ⟨us, hrel, hle⟩ := KruskalForestEmbeds_to_multiset hrest
+      refine ⟨t ::ₘ us, ?_, ?_⟩
+      · simpa using Multiset.Rel.cons hst hrel
+      · rw [Kruskal_multiset_coe_middle before after t]
+        exact Multiset.cons_le_cons t hle
+
+
+-- Reconstructs a Kruskal forest embedding from a multiset matching contained in the target forest.
+theorem KruskalForestEmbeds_of_multiset {X : Type} {r : X → X → Prop} {ss ts : List (KruskalTree X)}
+        (h : ∃ us : Multiset (KruskalTree X), Multiset.Rel (KruskalTreeEmbeds r)
+              (↑ss : Multiset (KruskalTree X)) us ∧ us ≤ (↑ts : Multiset (KruskalTree X))) :
+        KruskalForestEmbeds r ss ts := by
+  induction ss generalizing ts with
+  | nil => exact KruskalForestEmbeds.nil
+  | cons s ss ih =>
+      obtain ⟨us, hrel, hle⟩ := h
+      change Multiset.Rel (KruskalTreeEmbeds r) (s ::ₘ (↑ss : Multiset (KruskalTree X))) us
+        at hrel
+      obtain ⟨t, us', hst, hrel', hus⟩ := Multiset.rel_cons_left.mp hrel
+      rw [hus] at hle
+      have htM : t ∈ (↑ts : Multiset (KruskalTree X)) :=
+        Multiset.mem_of_le hle (Multiset.mem_cons_self t us')
+      have ht : t ∈ ts := by simpa using htM
+      obtain ⟨before, after, hts⟩ := List.append_of_mem ht
+      rw [hts] at hle
+      rw [Kruskal_multiset_coe_middle before after t] at hle
+      have hle' : us' ≤ (↑(before ++ after) : Multiset (KruskalTree X)) :=
+        (Multiset.cons_le_cons_iff t).mp hle
+      have hrest : KruskalForestEmbeds r ss (before ++ after) :=
+        ih ⟨us', hrel', hle'⟩
+      rw [hts]
+      exact KruskalForestEmbeds.cons hst hrest
+-- Removes one chosen source tree and its matched target tree while preserving the remaining
+-- forest embedding.
+theorem KruskalForestEmbeds_extract {X : Type} {r : X → X → Prop}
+        {before after : List (KruskalTree X)} {s : KruskalTree X} {ts : List (KruskalTree X)}
+        (h : KruskalForestEmbeds r (before ++ (s :: after)) ts) :
+        ∃ t before' after', ts = before' ++ (t :: after') ∧ KruskalTreeEmbeds r s t ∧
+          KruskalForestEmbeds r (before ++ after) (before' ++ after') := by
+  obtain ⟨us, hrel, hle⟩ := KruskalForestEmbeds_to_multiset h
+  rw [Kruskal_multiset_coe_middle before after s] at hrel
+  obtain ⟨t, us', hst, hrel', hus⟩ := Multiset.rel_cons_left.mp hrel
+  rw [hus] at hle
+  have htM : t ∈ (↑ts : Multiset (KruskalTree X)) :=
+    Multiset.mem_of_le hle (Multiset.mem_cons_self t us')
+  have ht : t ∈ ts := by simpa using htM
+  obtain ⟨before', after', hts⟩ := List.append_of_mem ht
+  rw [hts] at hle
+  rw [Kruskal_multiset_coe_middle before' after' t] at hle
+  have hle' : us' ≤ (↑(before' ++ after') : Multiset (KruskalTree X)) :=
+    (Multiset.cons_le_cons_iff t).mp hle
+  have hrest : KruskalForestEmbeds r (before ++ after) (before' ++ after') :=
+    KruskalForestEmbeds_of_multiset ⟨us', hrel', hle'⟩
+  exact ⟨t, before', after', hts, hst, hrest⟩
+namespace KruskalTree
+-- Measures the total structural size of a Kruskal tree for termination arguments.
+mutual
+def transComplexity {X : Type} : KruskalTree X → Nat
+  | .base _ => 1
+  | .node ts => transComplexityList ts + 1
+-- Measures the total structural size of a list of Kruskal trees.
+def transComplexityList {X : Type} : List (KruskalTree X) → Nat
+  | [] => 0
+  | t :: ts => transComplexity t + transComplexityList ts
+end
+-- The complexity of a concatenated forest is the sum of the complexities of its two parts.
+@[simp]
+theorem transComplexityList_append {X : Type} (before after : List (KruskalTree X)) :
+        transComplexityList (before ++ after) = transComplexityList before +
+            transComplexityList after := by
+  induction before with
+  | nil => simp [transComplexityList]
+  | cons t before ih => simp [transComplexityList, ih, Nat.add_assoc]
+
+-- Every Kruskal tree has strictly positive structural complexity.
+theorem transComplexity_pos {X : Type} (t : KruskalTree X) :
+        0 < transComplexity t := by
+  cases t with
+  | base x => simp [transComplexity]
+  | node ts => simp [transComplexity]
+-- Transitivity
+mutual
+-- Kruskal tree embedding is transitive whenever the underlying relation is transitive.
+theorem KruskalTreeEmbeds_trans {X : Type} {r : X → X → Prop} [IsPreorder X r]
+        {a b c : KruskalTree X} (hab : KruskalTreeEmbeds r a b)
+        (hbc : KruskalTreeEmbeds r b c) :
+        KruskalTreeEmbeds r a c := by
+  cases hbc with
+  | base hbcBase =>
+      cases hab with
+      | base habBase =>
+          exact KruskalTreeEmbeds.base (IsTrans.trans _ _ _ habBase hbcBase)
+  | root hbcForest =>
+      cases hab with
+      | root habForest =>
+          exact KruskalTreeEmbeds.root (KruskalForestEmbeds_trans
+              habForest hbcForest)
+      | @descend a b₀ before after habSub =>
+          obtain ⟨u, before', after', hc, hb₀u, _⟩ :=
+            KruskalForestEmbeds_extract (before := before) (after := after)
+              (s := b₀) hbcForest
+          rw [hc]; apply KruskalTreeEmbeds.descend
+          exact KruskalTreeEmbeds_trans habSub hb₀u
+  | @descend b c₀ before after hbcSub =>
+      apply KruskalTreeEmbeds.descend
+      exact KruskalTreeEmbeds_trans hab hbcSub
+termination_by KruskalTree.transComplexity a + KruskalTree.transComplexity b +
+  KruskalTree.transComplexity c
+decreasing_by
+  all_goals
+    subst_vars
+    simp [KruskalTree.transComplexity, KruskalTree.transComplexityList,
+      KruskalTree.transComplexityList_append]
+    omega
+-- Kruskal forest embedding is transitive whenever the underlying tree embedding is transitive.
+theorem KruskalForestEmbeds_trans {X : Type} {r : X → X → Prop} [IsPreorder X r]
+        {as bs cs : List (KruskalTree X)} (hab : KruskalForestEmbeds r as bs)
+        (hbc : KruskalForestEmbeds r bs cs) :
+        KruskalForestEmbeds r as cs := by
+  cases hab with
+  | nil => exact KruskalForestEmbeds.nil
+  | @cons a b as before after habTree habRest =>
+      obtain ⟨c, before', after', hcs, hbcTree, hbcRest⟩ :=
+        KruskalForestEmbeds_extract (before := before) (after := after)
+          (s := b) hbc
+      rw [hcs]
+      exact KruskalForestEmbeds.cons (KruskalTreeEmbeds_trans habTree hbcTree)
+        (KruskalForestEmbeds_trans habRest hbcRest)
+termination_by
+  KruskalTree.transComplexityList as +
+  KruskalTree.transComplexityList bs +
+  KruskalTree.transComplexityList cs + 1
+decreasing_by
+  all_goals
+    subst_vars
+    try have haPos : 0 < KruskalTree.transComplexity a :=
+        KruskalTree.transComplexity_pos a
+    try have hbPos : 0 < KruskalTree.transComplexity b :=
+        KruskalTree.transComplexity_pos b
+    try have hcPos : 0 < KruskalTree.transComplexity c :=
+        KruskalTree.transComplexity_pos c
+    simp [KruskalTree.transComplexity, KruskalTree.transComplexityList,
+      KruskalTree.transComplexityList_append]
+    omega
+end
+-- Kruskal tree embedding is a preorder whenever the underlying relation is a preorder.s
+instance KruskalTreeEmbeds_isPreorder {X : Type} {r : X → X → Prop}
+        [IsPreorder X r] : IsPreorder (KruskalTree X) (KruskalTreeEmbeds r) where
+  refl := by intro t; exact KruskalTreeEmbeds_refl t
+  trans := by intro a b c hab hbc; exact KruskalTreeEmbeds_trans hab hbc
+-- Bad Sequence argument
+-- A Kruskal bad sequence is an infinite sequence with no earlier tree embedding into a later tree.
+abbrev KruskalBadSeq {X : Type} (r : X → X → Prop)
+        (f : ℕ → KruskalTree X) : Prop :=
+  Set.PartiallyWellOrderedOn.IsBadSeq (KruskalTreeEmbeds r) Set.univ f
+-- A Kruskal minimal bad sequence is bad and cannot be made bad by replacing position
+-- n by a smaller tree.
+abbrev KruskalMinBadSeq {X : Type} (r : X → X → Prop) (n : ℕ) (f : ℕ → KruskalTree X) : Prop :=
+  Set.PartiallyWellOrderedOn.IsMinBadSeq (KruskalTreeEmbeds r)  KruskalTree.transComplexity
+    Set.univ n f
+-- If any bad Kruskal sequence exists, then there exists one which is complexity-minimal
+-- at every position.
+theorem exists_KruskalMinBadSeq {X : Type} {r : X → X → Prop}
+        (hbad : ∃ f : ℕ → KruskalTree X, KruskalBadSeq r f) :
+  ∃ f : ℕ → KruskalTree X, KruskalBadSeq r f ∧ ∀ n, KruskalMinBadSeq r n f := by
+  exact Set.PartiallyWellOrderedOn.exists_min_bad_of_exists_bad
+      (KruskalTreeEmbeds r) KruskalTree.transComplexity Set.univ hbad
+-- Partiall Well Ordered
+-- Base
+def KruskalBaseSet {X : Type} : Set (KruskalTree X) := {t | ∃ x : X, t = .base x}
+/- If the underlying labels are WQO, then the corresponding base trees are WQO under
+   Kruskal embedding.-/
+theorem KruskalBaseSet_partiallyWellOrderedOn {X : Type} {r : X → X → Prop}
+        (hX : WellQuasiOrdered r) :
+        (KruskalBaseSet (X := X)).PartiallyWellOrderedOn (KruskalTreeEmbeds r) := by
+  rw [Set.partiallyWellOrderedOn_iff_exists_lt]
+  intro f hf
+  have hfBase : ∀ n, ∃ x : X, f n = (.base x : KruskalTree X) := by intro n; exact hf n
+  choose g hg using hfBase; obtain ⟨i, j, hij, hgij⟩ := hX g
+  refine ⟨i, j, hij, ?_⟩; rw [hg i, hg j]
+  exact KruskalTreeEmbeds.base hgij
+/- In a bad Kruskal sequence over WQO labels, all sufficiently late terms must be node trees
+   rather than bases. -/
+theorem KruskalBadSeq_eventually_node {X : Type} {r : X → X → Prop} (hX : WellQuasiOrdered r)
+        {f : ℕ → KruskalTree X} (hbad : KruskalBadSeq r f) :
+        ∃ k, ∀ n, k < n → ∃ ts, f n = .node ts := by
+  have hBase : (KruskalBaseSet (X := X)).PartiallyWellOrderedOn (KruskalTreeEmbeds r) :=
+    KruskalBaseSet_partiallyWellOrderedOn hX
+  obtain ⟨k, hk⟩ := hBase.exists_notMem_of_gt hbad.2; refine ⟨k, ?_⟩
+  intro n hkn
+  have hnotBase : f n ∉ KruskalBaseSet (X := X) := hk n hkn
+  cases hfn : f n with
+  | base x => exfalso; apply hnotBase; exact ⟨x, hfn⟩
+  | node ts => exact ⟨ts, rfl⟩
+-- Every immediate child of a node has strictly smaller complexity than the whole node.
+theorem transComplexity_lt_node_of_mem {X : Type} {t : KruskalTree X}
+        {ts : List (KruskalTree X)} (ht : t ∈ ts) :
+        transComplexity t < transComplexity (.node ts) := by
+  induction ts with
+  | nil => simp at ht
+  | cons u us ih =>
+      simp only [List.mem_cons] at ht
+      rcases ht with rfl | ht
+      · simp only [transComplexity, transComplexityList]; omega
+      · have htu : transComplexity t < transComplexity (.node us) := ih ht
+        have huPos : 0 < transComplexity u := transComplexity_pos u
+        simp only [transComplexity, transComplexityList] at htu ⊢
+        omega
+-- Every immediate child of a Kruskal node embeds into the whole node.
+theorem KruskalTreeEmbeds_child {X : Type} {r : X → X → Prop} [IsPreorder X r]
+        {t : KruskalTree X} {ts : List (KruskalTree X)} (ht : t ∈ ts) :
+        KruskalTreeEmbeds r t (.node ts) := by
+  obtain ⟨before, after, hts⟩ := List.append_of_mem ht
+  rw [hts]; apply KruskalTreeEmbeds.descend
+  exact KruskalTreeEmbeds_refl t
+-- Minimality says replacing f n by one of its strictly smaller children cannot still
+-- produce a bad sequence.
+theorem KruskalMinBadSeq_no_child_bad {X : Type} {r : X → X → Prop}
+        {f g : ℕ → KruskalTree X} {n : ℕ} {ts : List (KruskalTree X)}
+        {t : KruskalTree X} (hmin : KruskalMinBadSeq r n f) (hfn : f n = .node ts)
+        (ht : t ∈ ts) (hprefix : ∀ m < n, f m = g m) (hgn : g n = t) :
+        ¬ KruskalBadSeq r g := by
+  have hsmall : KruskalTree.transComplexity (g n) < KruskalTree.transComplexity (f n) := by
+    rw [hgn, hfn]; exact KruskalTree.transComplexity_lt_node_of_mem ht
+  exact hmin g hprefix hsmall
+-- KruskalForestOn S ts means that every tree occurring in the forest ts belongs to S.
+def KruskalForestOn {X : Type}
+        (S : Set (KruskalTree X))
+        (ts : List (KruskalTree X)) : Prop :=
+  ∀ t, t ∈ ts → t ∈ S
+-- Higman's ordered list embedding implies our unordered Kruskal forest embedding.
+theorem KruskalForestEmbeds_of_sublistForall₂ {X : Type} {r : X → X → Prop}
+        {ss ts : List (KruskalTree X)} (h : List.SublistForall₂ (KruskalTreeEmbeds r) ss ts) :
+        KruskalForestEmbeds r ss ts := by
+  induction h with
+  | nil => exact KruskalForestEmbeds.nil
+  | cons hst hrest ih =>
+      simpa using (KruskalForestEmbeds.cons (before := []) hst ih)
+  | @cons_right t ss ts hrest ih =>
+      exact KruskalForestEmbeds_weaken_cons ih t
+-- If a set of Kruskal trees is WQO, then finite forests made from that set are WQO.
+theorem KruskalForestEmbeds_partiallyWellOrderedOn {X : Type} {r : X → X → Prop}
+        [IsPreorder X r] {S : Set (KruskalTree X)}
+        (hS : S.PartiallyWellOrderedOn (KruskalTreeEmbeds r)) :
+        {ts : List (KruskalTree X) | KruskalForestOn S ts}.PartiallyWellOrderedOn
+            (KruskalForestEmbeds r) := by
+  have hHigman := Set.PartiallyWellOrderedOn.partiallyWellOrderedOn_sublistForall₂
+      (KruskalTreeEmbeds r) hS
+  rw [Set.partiallyWellOrderedOn_iff_exists_lt]
+    at hHigman ⊢
+  intro f hf
+  obtain ⟨i, j, hij, hsub⟩ := hHigman f hf
+  exact ⟨i, j, hij, KruskalForestEmbeds_of_sublistForall₂ hsub⟩
+end KruskalTree
+namespace GapTree
+-- Children of a Minimal Bad Kruskal Sequence
+-- KruskalChildrenOfSeq f is the set of all immediate children occurring in trees of the sequence f.
+def KruskalChildrenOfSeq {X : Type}
+        (f : ℕ → KruskalTree X) :
+        Set (KruskalTree X) :=
+  {t | ∃ n ts, f n = .node ts ∧ t ∈ ts}
+-- The immediate children occurring in a globally minimal bad sequence form a WQO set.
+theorem KruskalChildrenOfMinBad_partiallyWellOrderedOn
+        {X : Type} {r : X → X → Prop}
+        [IsPreorder X r] {f : ℕ → KruskalTree X}
+        (hbad : KruskalTree.KruskalBadSeq r f)
+        (hmin : ∀ n, KruskalTree.KruskalMinBadSeq r n f) :
+        (KruskalChildrenOfSeq f).PartiallyWellOrderedOn
+          (KruskalTreeEmbeds r) := by
+  classical
+  rw [Set.PartiallyWellOrderedOn.iff_forall_not_isBadSeq]
+  intro R hR
+  -- Every R(n) occurs as a child of some f(p(n)).
+  have hFamily : ∀ n, ∃ p ts, f p = .node ts ∧ R n ∈ ts := by
+    intro n; exact hR.1 n
+  choose p ts hpNode hpMem using hFamily
+  have hex : ∃ k : ℕ, ∃ n : ℕ, p n = k := ⟨p 0, 0, rfl⟩
+  let k : ℕ := Nat.find hex
+  have hkSpec : ∃ n : ℕ, p n = k := by
+    simpa [k] using Nat.find_spec hex
+  obtain ⟨l, hpl⟩ := hkSpec
+  let g : ℕ → KruskalTree X := fun n => R (l + n)
+  let h : ℕ → ℕ := fun n => p (l + n)
+  have hgBad : KruskalTree.KruskalBadSeq r g := by
+    constructor
+    · intro n; simp
+    · intro m n hmn hEmbed
+      apply hR.2 (l + m) (l + n)
+      · omega
+      · simpa [g] using hEmbed
+  have hkLe : ∀ q : ℕ, k ≤ p q := by
+    intro q
+    dsimp [k]
+    exact Nat.find_min' hex ⟨q, rfl⟩
+  have hh : ∀ n, h 0 ≤ h n := by
+    intro n
+    have hk : k ≤ p (l + n) := hkLe (l + n)
+    have hh0 : h 0 = k := by simp [h, hpl]
+    rw [hh0]
+    simpa [h] using hk
+  have hgNode : ∀ n, f (h n) = .node (ts (l + n)) := by
+    intro n
+    simpa [h] using hpNode (l + n)
+  have hgMem : ∀ n, g n ∈ ts (l + n) := by
+    intro n
+    simpa [g] using hpMem (l + n)
+  have hgEmbedParent : ∀ n, KruskalTreeEmbeds r (g n) (f (h n)) := by
+    intro n
+    rw [hgNode n]
+    exact KruskalTree.KruskalTreeEmbeds_child (hgMem n)
+  let comb : ℕ → KruskalTree X := fun n =>
+    if n < h 0 then f n else g (n - h 0)
+  have hcombBad : KruskalTree.KruskalBadSeq r comb := by
+    constructor
+    · intro n; simp
+    · intro m n hmn hEmbed
+      by_cases hn : n < h 0
+      · have hm : m < h 0 := hmn.trans hn
+        have hEmbed' : KruskalTreeEmbeds r (f m) (f n) := by
+          simpa [comb, hm, hn] using hEmbed
+        exact hbad.2 m n hmn hEmbed'
+      · have hnge : h 0 ≤ n := Nat.le_of_not_gt hn
+        by_cases hm : m < h 0
+        · have hEmbed' : KruskalTreeEmbeds r (f m) (g (n - h 0)) := by
+            simpa [comb, hm, hn] using hEmbed
+          have hIntoParent :
+              KruskalTreeEmbeds r (g (n - h 0)) (f (h (n - h 0))) :=
+            hgEmbedParent (n - h 0)
+          have hWhole :
+              KruskalTreeEmbeds r (f m) (f (h (n - h 0))) :=
+            KruskalTree.KruskalTreeEmbeds_trans hEmbed' hIntoParent
+          have hmParent : m < h (n - h 0) :=
+            lt_of_lt_of_le hm (hh (n - h 0))
+          exact hbad.2 m (h (n - h 0)) hmParent hWhole
+        · have hmge : h 0 ≤ m := Nat.le_of_not_gt hm
+          have hsub : m - h 0 < n - h 0 := by omega
+          have hEmbed' : KruskalTreeEmbeds r (g (m - h 0)) (g (n - h 0)) := by
+            simpa [comb, hm, hn] using hEmbed
+          exact hgBad.2 (m - h 0) (n - h 0) hsub hEmbed'
+  have hprefix : ∀ m < h 0, f m = comb m := by
+    intro m hm
+    simp [comb, hm]
+  have hcombAt : comb (h 0) = g 0 := by simp [comb]
+  have hnotBad : ¬ KruskalTree.KruskalBadSeq r comb :=
+    KruskalTree.KruskalMinBadSeq_no_child_bad
+      (hmin (h 0)) (hgNode 0) (hgMem 0) hprefix hcombAt
+  exact hnotBad hcombBad
+
+
+--=================================================================================================
+-- Kruskal's Tree Theorem
+--=================================================================================================
+-- If the base relation is WQO, then finite Kruskal trees are WQO under homeomorphic embedding.
+theorem KruskalTreeEmbeds_wqo
+        {X : Type} {r : X → X → Prop}
+        [IsPreorder X r] (hX : WellQuasiOrdered r) :
+        WellQuasiOrdered (KruskalTreeEmbeds r) := by
+  classical
+  rw [← Set.partiallyWellOrderedOn_univ_iff]
+  rw [Set.PartiallyWellOrderedOn.iff_not_exists_isMinBadSeq
+    KruskalTree.transComplexity]
+  rintro ⟨f, hbad, hmin⟩
+  have hChildren :
+      (KruskalChildrenOfSeq f).PartiallyWellOrderedOn
+        (KruskalTreeEmbeds r) :=
+    KruskalChildrenOfMinBad_partiallyWellOrderedOn hbad hmin
+  obtain ⟨k, hkNode⟩ :=
+    KruskalTree.KruskalBadSeq_eventually_node hX hbad
+  have hNodeTail : ∀ n, ∃ ts, f (k + 1 + n) = .node ts := by
+    intro n
+    apply hkNode
+    omega
+  choose forests hForests using hNodeTail
+  have hForestOn :
+      ∀ n, KruskalTree.KruskalForestOn (KruskalChildrenOfSeq f) (forests n) := by
+    intro n t ht
+    exact ⟨k + 1 + n, forests n, hForests n, ht⟩
+  have hForestWQO :
+      {ts : List (KruskalTree X) |
+        KruskalTree.KruskalForestOn (KruskalChildrenOfSeq f) ts}.PartiallyWellOrderedOn
+          (KruskalForestEmbeds r) :=
+    KruskalTree.KruskalForestEmbeds_partiallyWellOrderedOn hChildren
+  rw [Set.partiallyWellOrderedOn_iff_exists_lt] at hForestWQO
+  obtain ⟨i, j, hij, hForestEmbed⟩ :=
+    hForestWQO forests hForestOn
+  have hTreeEmbed :
+      KruskalTreeEmbeds r (f (k + 1 + i)) (f (k + 1 + j)) := by
+    rw [hForests i, hForests j]
+    exact KruskalTreeEmbeds.root hForestEmbed
+  have hIndices : k + 1 + i < k + 1 + j := by omega
+  exact hbad.2 (k + 1 + i) (k + 1 + j) hIndices hTreeEmbed
 end GapTree
+/- Outline
+   1. Build the two layer Kruskal strucutre like the gaptree label 0 and 1
+   2. Encode GapTree into the iterated Kruskal structure
+   3. prove order preservation
+   4. apply wqo of Kruskal to conclude GapTreeEmbeds_wqo -/
+--=====================================================================================
+-- T_n(X) notation of Freund
+/- T_n(X) is the system of finite trees with n possible/available internal labels where X supplies
+   the optional objects that can occer at the leaves. Freund proves T_n(0) corresponds to tree
+   labelled 0, ..., n-1 with the strong gap embedding.
+   T₀(X) = X
+   T₁(X) ≃ KruskalTree X
+    for example, .node [.base x .node [.base y]] can be pictured with only available node 0
+          0
+         / \
+       [x]  0
+            |
+           [y]
+   T₂(X) has two possible nodes 0 or 1. T₂^{-}(X) is thought as the new layer to add on T₁(X).
+   This shifts the old 0 to 1 and a new node 0 is introduced.  -/
+namespace GapTree
+/- As explained above the nodes are pushed up from T₁ to T₂. So,
+   Kruskal2Minus.node represents a new label-0 node
+   KruskalTree.node represents a label-1 node      -/
+inductive Kruskal2Minus where
+  | node : List (KruskalTree Kruskal2Minus) → Kruskal2Minus
+-- T₂ is an ordinary Kruskal layer built over T₂^{-}
+abbrev Kruskal2 := KruskalTree Kruskal2Minus
+/- A Kruskal2Minus object appears inside Kruskal2 as a base.
+    For example
+              node
+              |
+              node
+              |
+            base u
+    represents
+              1
+              |
+              1
+              |
+              0
+    where the bottom 0-node is the Kruskal2Minus object u. -/
+-- The base label x occers somewhere inside the Kruskal tree t
+inductive KruskalBaseOccurs {X : Type} (x : X) : KruskalTree X → Prop where
+  | base : KruskalBaseOccurs x (.base x)
+  | node {t : KruskalTree X} {ts : List (KruskalTree X)} (ht : t ∈ ts) (h : KruskalBaseOccurs x t) :
+    KruskalBaseOccurs x (.node ts)
+-- x occus inside at least one tree of the forest
+def KruskalBaseOccursForest (x : X) (ts : List (KruskalTree X)) : Prop :=
+  ∃ t, t ∈ ts ∧ KruskalBaseOccurs x t
+-- If x occurs inside a member of a forest, then x occurs inside the whole forest
+theorem KruskalBaseOccursForest_of_mem {X : Type} {x : X} {t : KruskalTree X}
+        {ts : List (KruskalTree X)} (ht : t ∈ ts) (hx : KruskalBaseOccurs x t) :
+        KruskalBaseOccursForest x ts := by
+  exact ⟨t, ht, hx⟩
+-- A base label occurs in the one-node Kruskal tree containing exactly that base.
+theorem KruskalBaseOccurs_base {X : Type} (x : X) : KruskalBaseOccurs x (.base x : KruskalTree X) :=
+  by exact KruskalBaseOccurs.base
+-- Occurrence propagates upward when the containing tree is made a child of a new Kruskal node
+theorem KruskalBaseOccurs_node {X : Type} {x : X} {t : KruskalTree X} {ts : List (KruskalTree X)}
+        (ht : t ∈ ts) (hx : KruskalBaseOccurs x t) :
+        KruskalBaseOccurs x (.node ts) := by
+  exact KruskalBaseOccurs.node ht hx
+-- A base label occurring in a tree of a forest also occurs after unused trees are added before it.
+theorem KruskalBaseOccursForest_of_append_left {X : Type} {x : X} {ts : List (KruskalTree X)}
+        (before : List (KruskalTree X)) (h : KruskalBaseOccursForest x ts) :
+        KruskalBaseOccursForest x (before ++ ts) := by
+  obtain ⟨t, ht, hx⟩ := h; refine ⟨t, ?_, hx⟩; simp [ht]
+-- A base label occurring in a tree of a forest also occurs after unused trees are added after it.
+theorem KruskalBaseOccursForest_of_append_right {X : Type} {x : X} {ts : List (KruskalTree X)}
+        (after : List (KruskalTree X)) (h : KruskalBaseOccursForest x ts) :
+        KruskalBaseOccursForest x (ts ++ after) := by
+  obtain ⟨t, ht, hx⟩ := h; refine ⟨t, ?_, hx⟩; simp [ht]
+--================================================================================================
+-- Two-label Kruskal Embedding
+/- For two label-0 objects s and t,
+   root : compare their child forests
+   descend : s can embed into a label-0 object u occuring inside one of t's children (the process
+             is to find the "base" so only crosses label-1's on its way to u.)
+    root:
+
+      0                         0
+    / | \                     / | \
+   s₁ s₂ ...      embeds      t₁ t₂ ...
+
+
+    descend:
+
+                0
+                |
+                1
+                |
+                1
+                |
+                0  ← u
+
+s embeds u
+s embeds whole tree -/
+inductive Kruskal2MinusEmbeds : Kruskal2Minus → Kruskal2Minus → Prop where
+  | root {ss ts : List (KruskalTree Kruskal2Minus)}
+         (h : KruskalForestEmbeds Kruskal2MinusEmbeds ss ts) :
+    Kruskal2MinusEmbeds (.node ss) (.node ts)
+  | descend {s u : Kruskal2Minus} {ts : List (KruskalTree Kruskal2Minus)}
+            (hu : KruskalBaseOccursForest u ts) (h : Kruskal2MinusEmbeds s u) :
+    Kruskal2MinusEmbeds s (.node ts)
+abbrev Kruskal2Embeds : Kruskal2 → Kruskal2 → Prop := KruskalTreeEmbeds Kruskal2MinusEmbeds
+abbrev Kruskal2ForestEmbeds : List Kruskal2 → List Kruskal2 → Prop :=
+  KruskalForestEmbeds Kruskal2MinusEmbeds
+-- Reflexivity (Embedding to itself)
+mutual
+-- Simply every label-0 two lebel Kruskal object embeds into itself
+theorem Kruskal2MinusEmbeds_refl (s : Kruskal2Minus) : Kruskal2MinusEmbeds s s := by
+  cases s with
+  | node ss => apply Kruskal2MinusEmbeds.root
+               exact Kruskal2ForestEmbeds_refl ss
+-- Every 2-level Kruskal tree embeds into itself
+theorem Kruskal2Embeds_refl (s : Kruskal2) : Kruskal2Embeds s s := by
+  cases s with
+  | base x => exact KruskalTreeEmbeds.base (Kruskal2MinusEmbeds_refl x)
+  | node ss => apply KruskalTreeEmbeds.root
+               exact Kruskal2ForestEmbeds_refl ss
+-- Every two level Kruskal forest emebds into itself
+theorem Kruskal2ForestEmbeds_refl (ss : List Kruskal2) :
+        Kruskal2ForestEmbeds ss ss := by
+  cases ss with
+  | nil => exact KruskalForestEmbeds.nil
+  | cons s ss =>
+      have hs : Kruskal2Embeds s s := Kruskal2Embeds_refl s
+      have hss : Kruskal2ForestEmbeds ss ss :=
+        Kruskal2ForestEmbeds_refl ss
+      simpa using (KruskalForestEmbeds.cons (s := s) (t := s) (ss := ss)
+          (before := []) (after := ss) hs hss)
+end
+/- We want some support-transport lemma that satisfies something like the following:
+   x occurs in s and s ≤ t → ∃ y, y occurs in t and x ≤ y -/
+mutual
+/- Given a base object x occuring in s and s embeds into t, there is some base object y in t
+   such that r x y -/
+theorem KruskalBaseOccurs_of_embeds {X : Type} {r : X → X → Prop} {x : X} {s t : KruskalTree X}
+        (hx : KruskalBaseOccurs x s) (h : KruskalTreeEmbeds r s t) :
+        ∃ y, KruskalBaseOccurs y t ∧ r x y := by
+  cases h with
+  | base hxy => cases hx with
+                | base => exact ⟨_, KruskalBaseOccurs.base, hxy⟩
+  | @root ss ts hforest =>
+    cases hx with
+    | @node u ss hu hx => have hSource : KruskalBaseOccursForest x ss := by exact ⟨u, hu, hx⟩
+                          obtain ⟨y, hyForest, hxy⟩ :=
+                           KruskalBaseOccursForest_of_embeds hSource hforest
+                          obtain ⟨v, hv, hyv⟩ := hyForest
+                          refine ⟨y, ?_, hxy⟩
+                          exact KruskalBaseOccurs.node hv hyv
+  | @descend s u before after hsub =>
+      obtain ⟨y, hy, hxy⟩ := KruskalBaseOccurs_of_embeds hx hsub
+      refine ⟨y, ?_, hxy⟩
+      apply KruskalBaseOccurs.node (t := u)
+      · simp
+      · exact hy
+termination_by
+  2 * (KruskalTree.transComplexity s + KruskalTree.transComplexity t)
+decreasing_by
+  all_goals subst_vars
+  all_goals simp [KruskalTree.transComplexity, KruskalTree.transComplexityList,
+    KruskalTree.transComplexityList_append]
+  all_goals omega
+
+/- An embedded forest carries every occurring base label to an embedding-related base label
+   in the target forest. -/
+theorem KruskalBaseOccursForest_of_embeds {X : Type} {r : X → X → Prop} {x : X}
+        {ss ts : List (KruskalTree X)} (hx : KruskalBaseOccursForest x ss)
+        (h : KruskalForestEmbeds r ss ts) :
+        ∃ y, KruskalBaseOccursForest y ts ∧ r x y := by
+ cases h with
+  | nil => obtain ⟨u, hu, _⟩ := hx; simp at hu
+  | @cons s t ss before after hst hrest =>
+      obtain ⟨u, hu, hxu⟩ := hx
+      simp only [List.mem_cons] at hu
+      rcases hu with rfl | hu
+      -- x occurs inside the source tree matched with t.
+      · obtain ⟨y, hyt, hxy⟩ := KruskalBaseOccurs_of_embeds hxu hst
+        refine ⟨y, ?_, hxy⟩; refine ⟨t, ?_, hyt⟩; simp
+      -- x occurs in the remainder of the source forest.
+      · have hxRest : KruskalBaseOccursForest x ss := by
+          exact ⟨u, hu, hxu⟩
+        obtain ⟨y, hyRest, hxy⟩ :=
+          KruskalBaseOccursForest_of_embeds hxRest hrest
+        obtain ⟨v, hv, hyv⟩ := hyRest
+        refine ⟨y, ?_, hxy⟩; refine ⟨v, ?_, hyv⟩
+        simp only [List.mem_append, List.mem_cons] at hv ⊢
+        rcases hv with hv | hv
+        · exact Or.inl hv
+        · exact Or.inr (Or.inr hv)
+termination_by
+  2 * (KruskalTree.transComplexityList ss + KruskalTree.transComplexityList ts) + 1
+decreasing_by
+  all_goals subst_vars
+  all_goals try have hsPos := KruskalTree.transComplexity_pos s
+  all_goals try have htPos := KruskalTree.transComplexity_pos t
+  all_goals simp [KruskalTree.transComplexity, KruskalTree.transComplexityList,
+    KruskalTree.transComplexityList_append]
+  all_goals omega
+end
+--========================================================================================
+-- Two-Level Kruskal Structural Complexity
+/- Unlike ordinary Kruskal complexity, this complexity also counts the
+   Kruskal2Minus object hidden inside a base, so both labels 0 and 1
+   contribute to the measure. -/
+mutual
+-- Measures the complete structural complexity of a label-0 Kruskal2Minus object.
+def Kruskal2Minus_cmplx (s : Kruskal2Minus) : Nat :=
+  match s with
+  | .node ts => Kruskal2Forest_cmplx ts + 1
+  termination_by sizeOf s
+  decreasing_by all_goals simp_wf
+-- Measures the complete structural complexity of a two-level Kruskal tree.
+def Kruskal2_cmplx (t : Kruskal2) : Nat :=
+  match t with
+  | .base x => Kruskal2Minus_cmplx x + 1
+  | .node ts => Kruskal2Forest_cmplx ts + 1
+  termination_by sizeOf t
+  decreasing_by all_goals simp_wf
+-- Measures the total structural complexity of a forest of two-level Kruskal trees.
+def Kruskal2Forest_cmplx (ts : List Kruskal2) : Nat :=
+  match ts with
+  | [] => 0
+  | t :: ts => Kruskal2_cmplx t + Kruskal2Forest_cmplx ts + 1
+  termination_by sizeOf ts
+  decreasing_by all_goals simp_wf <;> omega
+end
+-- Arithmetics
+-- The complexity of concatenated two-level forests is the sum of their complexities.
+@[simp]
+theorem Kruskal2Forest_cmplx_append (ss ts : List Kruskal2) :
+        Kruskal2Forest_cmplx (ss ++ ts) = Kruskal2Forest_cmplx ss + Kruskal2Forest_cmplx ts := by
+  induction ss with
+  | nil => simp [Kruskal2Forest_cmplx]
+  | cons s ss ih => simp [Kruskal2Forest_cmplx, ih]; omega
+-- Every label-0 Kruskal2Minus object has positive complexity.
+theorem Kruskal2Minus_cmplx_pos (s : Kruskal2Minus) :
+        0 < Kruskal2Minus_cmplx s := by
+  cases s with
+  | node ss => simp [Kruskal2Minus_cmplx]
+-- Every full two-level Kruskal tree has positive complexity.
+theorem Kruskal2_cmplx_pos (t : Kruskal2) : 0 < Kruskal2_cmplx t := by
+  cases t with
+  | base x => simp [Kruskal2_cmplx]
+  | node ts => simp [Kruskal2_cmplx]
+-- Every tree occurring in a forest has smaller complexity than the whole forest.
+theorem Kruskal2_cmplx_lt_forest_of_mem {t : Kruskal2} {ts : List Kruskal2}
+        (ht : t ∈ ts) :
+        Kruskal2_cmplx t < Kruskal2Forest_cmplx ts := by
+  induction ts with
+  | nil => simp at ht
+  | cons u us ih =>
+      simp only [List.mem_cons] at ht
+      rcases ht with rfl | ht
+      · simp [Kruskal2Forest_cmplx]
+      · have h := ih ht
+        have huPos := Kruskal2_cmplx_pos u
+        simp [Kruskal2Forest_cmplx] at h ⊢
+        omega
+-- A base object occurring inside a two-level tree is strictly smaller than the whole tree.
+theorem Kruskal2Minus_cmplx_lt_of_occurs {x : Kruskal2Minus} {t : Kruskal2}
+        (hx : KruskalBaseOccurs x t) :
+        Kruskal2Minus_cmplx x < Kruskal2_cmplx t := by
+  induction hx with
+  | base => simp [Kruskal2_cmplx]
+  | @node t ts ht hx ih =>
+      have htSmall : Kruskal2_cmplx t < Kruskal2Forest_cmplx ts :=
+        Kruskal2_cmplx_lt_forest_of_mem ht
+      simp [Kruskal2_cmplx]
+      omega
+-- A base object occurring somewhere in a forest is smaller than the complete forest.
+theorem Kruskal2Minus_cmplx_lt_forest_of_occurs {x : Kruskal2Minus}
+        {ts : List Kruskal2} (hx : KruskalBaseOccursForest x ts) :
+        Kruskal2Minus_cmplx x < Kruskal2Forest_cmplx ts := by
+  obtain ⟨t, ht, hxt⟩ := hx
+  have hxTree : Kruskal2Minus_cmplx x < Kruskal2_cmplx t :=
+    Kruskal2Minus_cmplx_lt_of_occurs hxt
+  have htForest : Kruskal2_cmplx t < Kruskal2Forest_cmplx ts :=
+    Kruskal2_cmplx_lt_forest_of_mem ht
+  omega
+-- A supported label-0 object is strictly smaller than the label-0 node containing that support.
+theorem Kruskal2Minus_cmplx_lt_node_of_occurs {x : Kruskal2Minus}
+        {ts : List Kruskal2} (hx : KruskalBaseOccursForest x ts) :
+        Kruskal2Minus_cmplx x < Kruskal2Minus_cmplx (.node ts) := by
+  have h := Kruskal2Minus_cmplx_lt_forest_of_occurs hx
+  simp [Kruskal2Minus_cmplx]
+  omega
+-- Transitivity
+mutual
+-- Embedding between label-0 Kruskal2Minus objects is transitive
+theorem Kruskal2MinusEmbeds_trans {a b c : Kruskal2Minus} (hab : Kruskal2MinusEmbeds a b)
+        (hbc : Kruskal2MinusEmbeds b c) :
+        Kruskal2MinusEmbeds a c := by
+  cases hbc with
+  | @root bs cs hbcForest =>
+    cases hab with
+    | root habForest =>
+      exact Kruskal2MinusEmbeds.root (Kruskal2ForestEmbeds_trans habForest hbcForest)
+    | @descend a u bs hu habSub =>
+      -- ∃v, KruskalBaseOccursForest v ts ∧ r u v
+      obtain ⟨v, hv, huv⟩ := KruskalBaseOccursForest_of_embeds hu hbcForest
+      have huSmall : Kruskal2Minus_cmplx u < Kruskal2Minus_cmplx (.node bs) :=
+        Kruskal2Minus_cmplx_lt_node_of_occurs hu
+      have hvSmall : Kruskal2Minus_cmplx v < Kruskal2Minus_cmplx (.node cs) :=
+        Kruskal2Minus_cmplx_lt_node_of_occurs hv
+      have hav : Kruskal2MinusEmbeds a v := Kruskal2MinusEmbeds_trans habSub huv
+      exact Kruskal2MinusEmbeds.descend hv hav
+  | @descend b u cs hu hbcSub =>
+      have huSmall : Kruskal2Minus_cmplx u < Kruskal2Minus_cmplx (.node cs) :=
+        Kruskal2Minus_cmplx_lt_node_of_occurs hu
+      -- Recursively compose a ≤ b ≤ u.
+      have hau : Kruskal2MinusEmbeds a u :=
+        Kruskal2MinusEmbeds_trans hab hbcSub
+      -- Then descend from a to u inside c.
+      exact Kruskal2MinusEmbeds.descend hu hau
+termination_by
+  3 * (Kruskal2Minus_cmplx a + Kruskal2Minus_cmplx b + Kruskal2Minus_cmplx c) + 2
+decreasing_by
+  all_goals
+    subst_vars
+    try simp [Kruskal2Minus_cmplx] at huSmall
+    try simp [Kruskal2Minus_cmplx] at hvSmall
+    simp [Kruskal2Minus_cmplx]
+    omega
+-- Embedding between complete two-level Kruskal trees is transitive
+theorem Kruskal2Embeds_trans {a b c : Kruskal2} (hab : Kruskal2Embeds a b)
+        (hbc : Kruskal2Embeds b c) : Kruskal2Embeds a c := by
+  cases hbc with
+  -- Both b and c are base objects, hence label-0 structures.
+  | base hbcBase =>
+      cases hab with
+      | base habBase =>
+          exact KruskalTreeEmbeds.base (Kruskal2MinusEmbeds_trans habBase hbcBase)
+  -- b and c are ordinary outer Kruskal nodes, hence label-1 nodes.
+  | @root bs cs hbcForest =>
+      cases hab with
+      -- a and b have matching label-1 roots.
+      | root habForest =>
+          exact KruskalTreeEmbeds.root (Kruskal2ForestEmbeds_trans habForest hbcForest)
+      -- a embeds into one particular child b₀ of b.
+      | @descend a b₀ before after habSub =>
+          obtain ⟨c₀, before', after', hcs, hb₀c₀, _⟩ :=
+            KruskalForestEmbeds_extract (before := before) (after := after)
+              (s := b₀) hbcForest
+          have hb₀Mem : b₀ ∈ before ++ b₀ :: after := by simp
+          have hb₀Small : Kruskal2_cmplx b₀ < Kruskal2_cmplx (.node (before ++ b₀ :: after)) := by
+            have h : Kruskal2_cmplx b₀ < Kruskal2Forest_cmplx (before ++ b₀ :: after) :=
+              Kruskal2_cmplx_lt_forest_of_mem hb₀Mem
+            simp only [Kruskal2_cmplx]
+            exact h.trans (Nat.lt_succ_self _)
+          have hc₀Small : Kruskal2_cmplx c₀ < Kruskal2_cmplx (.node cs) := by
+            have hc₀Mem : c₀ ∈ cs := by rw [hcs]; simp
+            have h : Kruskal2_cmplx c₀ < Kruskal2Forest_cmplx cs :=
+              Kruskal2_cmplx_lt_forest_of_mem hc₀Mem
+            simp only [Kruskal2_cmplx]
+            exact h.trans (Nat.lt_succ_self _)
+          rw [hcs]; apply KruskalTreeEmbeds.descend
+          exact Kruskal2Embeds_trans habSub hb₀c₀
+  -- b embeds into a child c₀ of the final label-1 node c.
+  | @descend b c₀ before after hbcSub =>
+      have hc₀Mem : c₀ ∈ before ++ c₀ :: after := by simp
+      have hc₀Small : Kruskal2_cmplx c₀ < Kruskal2_cmplx (.node (before ++ c₀ :: after)) := by
+        have h : Kruskal2_cmplx c₀ < Kruskal2Forest_cmplx (before ++ c₀ :: after) :=
+          Kruskal2_cmplx_lt_forest_of_mem hc₀Mem
+        simp only [Kruskal2_cmplx]
+        exact h.trans (Nat.lt_succ_self _)
+      apply KruskalTreeEmbeds.descend
+      exact Kruskal2Embeds_trans
+        hab
+        hbcSub
+termination_by
+  3 * (Kruskal2_cmplx a + Kruskal2_cmplx b + Kruskal2_cmplx c) + 1
+decreasing_by
+  all_goals
+    subst_vars
+    try simp [Kruskal2_cmplx] at hb₀Small
+    try simp [Kruskal2_cmplx] at hc₀Small
+    simp [Kruskal2_cmplx]
+    omega
+-- Embedding between finite forest of two-level Kruskal trees is transitive
+theorem Kruskal2ForestEmbeds_trans {as bs cs : List Kruskal2} (hab : Kruskal2ForestEmbeds as bs)
+        (hbc : Kruskal2ForestEmbeds bs cs) : Kruskal2ForestEmbeds as cs := by
+  cases hab with
+  | nil => exact KruskalForestEmbeds.nil
+  | @cons a b as before after habTree habRest =>
+      obtain ⟨c, before', after', hcs, hbcTree, hbcRest⟩ :=
+        KruskalForestEmbeds_extract (before := before) (after := after) (s := b) hbc
+      have haPos : 0 < Kruskal2_cmplx a := Kruskal2_cmplx_pos a
+      have hbPos : 0 < Kruskal2_cmplx b := Kruskal2_cmplx_pos b
+      have hcPos : 0 < Kruskal2_cmplx c := Kruskal2_cmplx_pos c
+      rw [hcs]
+      exact KruskalForestEmbeds.cons
+        (Kruskal2Embeds_trans habTree hbcTree)
+        (Kruskal2ForestEmbeds_trans habRest hbcRest)
+termination_by
+  3 * (Kruskal2Forest_cmplx as + Kruskal2Forest_cmplx bs + Kruskal2Forest_cmplx cs)
+decreasing_by
+  all_goals
+    subst_vars
+    simp only [Kruskal2Forest_cmplx, Kruskal2Forest_cmplx_append]
+    omega
+end
+/- Next steps
+    1. Show Kruskal2MinusEmbeds is WQO (similar to KruskalTreeEmbeds so telling Codex to simulate)
+    2. Get WQO of the full two level Kruskal trees
+    3. Encode each GapTree as Kruskal2
+    4. Prove Kruskal2 embedding reflets to a strong-gap
+    5. Prove the actual strong-gap WQO
+    Finish -/
+
+-- Kruskal2Minus embedding is a preorder.
+instance Kruskal2MinusEmbeds_isPreorder : IsPreorder Kruskal2Minus Kruskal2MinusEmbeds where
+  refl := by intro s; exact Kruskal2MinusEmbeds_refl s
+  trans := by intro a b c hab hbc; exact Kruskal2MinusEmbeds_trans hab hbc
+-- Minimal Bad Sequences for T₂^{-}
+-- A bad sequence of label-0 two-level Kruskal objects has no increasing pair.
+abbrev Kruskal2MinusBadSeq (f : ℕ → Kruskal2Minus) : Prop :=
+  Set.PartiallyWellOrderedOn.IsBadSeq Kruskal2MinusEmbeds Set.univ f
+-- A minimal bad sequence is complexity-minimal at the indicated position.
+abbrev Kruskal2MinusMinBadSeq (n : ℕ) (f : ℕ → Kruskal2Minus) : Prop :=
+  Set.PartiallyWellOrderedOn.IsMinBadSeq Kruskal2MinusEmbeds Kruskal2Minus_cmplx Set.univ n f
+-- Every bad T₂⁻ sequence admits a globally complexity-minimal bad sequence.
+theorem exists_Kruskal2MinusMinBadSeq (hbad : ∃ f : ℕ → Kruskal2Minus, Kruskal2MinusBadSeq f) :
+        ∃ f : ℕ → Kruskal2Minus, Kruskal2MinusBadSeq f ∧
+          ∀ n, Kruskal2MinusMinBadSeq n f := by
+  exact Set.PartiallyWellOrderedOn.exists_min_bad_of_exists_bad
+      Kruskal2MinusEmbeds Kruskal2Minus_cmplx Set.univ hbad
+-- The set of all T₂ child trees occurring in a sequence of T₂⁻ objects.
+def Kruskal2ChildrenOfSeq (f : ℕ → Kruskal2Minus) : Set Kruskal2 :=
+  {t | ∃ n ts, f n = .node ts ∧ t ∈ ts}
+
+-- Supports of a Minimal Bad T₂^{-} Sequence
+/- The support of a T₂⁻ sequence consists of every label-0 object occurring
+   as a base somewhere inside one of the immediate T₂ children. -/
+-- Kruskal2SupportOfSeq f is the set of all label-0 base objects occurring inside children of f.
+def Kruskal2SupportOfSeq (f : ℕ → Kruskal2Minus) : Set Kruskal2Minus :=
+  {x | ∃ n ts, f n = .node ts ∧ KruskalBaseOccursForest x ts}
+-- Every support object of a parent is strictly smaller than that parent.
+theorem Kruskal2SupportOfSeq_cmplx_lt {f : ℕ → Kruskal2Minus} {x : Kruskal2Minus}
+        {n : ℕ} {ts : List Kruskal2} (hfn : f n = .node ts)
+        (hx : KruskalBaseOccursForest x ts) :
+        Kruskal2Minus_cmplx x < Kruskal2Minus_cmplx (f n) := by
+  rw [hfn]; exact Kruskal2Minus_cmplx_lt_node_of_occurs hx
+-- Every support object embeds into the label-0 parent in which it occurs.
+theorem Kruskal2SupportOfSeq_embeds_parent {x : Kruskal2Minus} {ts : List Kruskal2}
+        (hx : KruskalBaseOccursForest x ts) :
+        Kruskal2MinusEmbeds x (.node ts) := by
+  apply Kruskal2MinusEmbeds.descend hx; exact Kruskal2MinusEmbeds_refl x
+-- The support objects occurring in a globally minimal bad T₂⁻ sequence form a WQO set.
+theorem Kruskal2SupportOfMinBad_partiallyWellOrderedOn {f : ℕ → Kruskal2Minus}
+        (hbad : Kruskal2MinusBadSeq f) (hmin : ∀ n, Kruskal2MinusMinBadSeq n f) :
+        (Kruskal2SupportOfSeq f).PartiallyWellOrderedOn Kruskal2MinusEmbeds := by
+  classical
+  rw [Set.PartiallyWellOrderedOn.iff_forall_not_isBadSeq]
+  intro R hR
+  -- Every R(n) is a support object of some parent f(p(n)).
+  have hFamily : ∀ n, ∃ p ts, f p = .node ts ∧ KruskalBaseOccursForest (R n) ts := by
+    intro n; simpa [Kruskal2SupportOfSeq] using hR.1 n
+  choose p ts hpNode hpOccurs using hFamily
+  -- Pick the least parent index containing some member of R.
+  have hex : ∃ k : ℕ, ∃ n : ℕ, p n = k := by exact ⟨p 0, 0, rfl⟩
+  let k : ℕ := Nat.find hex
+  have hkSpec : ∃ n : ℕ, p n = k := by
+    simpa [k] using Nat.find_spec hex
+  obtain ⟨l, hpl⟩ := hkSpec
+  -- Take the tail of R beginning at an occurrence with least parent index.
+  let g : ℕ → Kruskal2Minus := fun n => R (l + n)
+  let h : ℕ → ℕ := fun n => p (l + n)
+  -- A tail of a bad sequence is still bad.
+  have hgBad : Kruskal2MinusBadSeq g := by
+    constructor
+    · intro n; simp
+    · intro m n hmn hEmbed
+      apply hR.2 (l + m) (l + n)
+      · omega
+      · simpa [g] using hEmbed
+  -- k is below every parent index selected by p.
+  have hkLe : ∀ q : ℕ, k ≤ p q := by
+    intro q; dsimp [k]
+    exact Nat.find_min' hex ⟨q, rfl⟩
+  -- Therefore h(0) is below every later selected parent index.
+  have hh : ∀ n, h 0 ≤ h n := by
+    intro n
+    have hk : k ≤ p (l + n) := hkLe (l + n)
+    have hh0 : h 0 = k := by simp [h, hpl]
+    rw [hh0]; simpa [h] using hk
+  -- g(n) occurs inside the child forest of its corresponding parent.
+  have hgNode : ∀ n, f (h n) = .node (ts (l + n)) := by
+    intro n; simpa [h] using hpNode (l + n)
+  have hgOccurs : ∀ n, KruskalBaseOccursForest (g n) (ts (l + n)) := by
+    intro n; simpa [g] using hpOccurs (l + n)
+  -- Hence every g(n) embeds into the parent f(h(n)).
+  have hgEmbedParent : ∀ n, Kruskal2MinusEmbeds (g n) (f (h n)) := by
+    intro n; rw [hgNode n]
+    exact Kruskal2SupportOfSeq_embeds_parent (hgOccurs n)
+  -- Replace f(h 0) and everything afterwards by the bad support sequence g.
+  let comb : ℕ → Kruskal2Minus :=
+    fun n =>
+      if n < h 0 then
+        f n
+      else
+        g (n - h 0)
+  -- The combined sequence would still be bad.
+  have hcombBad : Kruskal2MinusBadSeq comb := by
+    constructor
+    · intro n; simp
+    · intro m n hmn hEmbed
+      by_cases hn : n < h 0
+      -- Both indices are still in the original prefix of f.
+      · have hm : m < h 0 := hmn.trans hn
+        have hEmbed' : Kruskal2MinusEmbeds (f m) (f n) := by
+          simpa [comb, hm, hn] using hEmbed
+        exact hbad.2 m n hmn hEmbed'
+      · have hnge : h 0 ≤ n := Nat.le_of_not_gt hn
+        by_cases hm : m < h 0
+        -- m is in the old prefix, while n is in the new support tail.
+        · have hEmbed' : Kruskal2MinusEmbeds (f m) (g (n - h 0)) := by
+            simpa [comb, hm, hn] using hEmbed
+          have hIntoParent : Kruskal2MinusEmbeds (g (n - h 0)) (f (h (n - h 0))) :=
+            hgEmbedParent (n - h 0)
+          have hWhole : Kruskal2MinusEmbeds (f m) (f (h (n - h 0))) :=
+            Kruskal2MinusEmbeds_trans hEmbed' hIntoParent
+          have hmParent : m < h (n - h 0) :=
+            lt_of_lt_of_le hm  (hh (n - h 0))
+          exact hbad.2 m (h (n - h 0)) hmParent hWhole
+        -- Both indices lie in the bad support tail g.
+        · have hmge : h 0 ≤ m := Nat.le_of_not_gt hm
+          have hsub : m - h 0 < n - h 0 := by omega
+          have hEmbed' : Kruskal2MinusEmbeds (g (m - h 0)) (g (n - h 0)) := by
+            simpa [comb, hm, hn] using hEmbed
+          exact hgBad.2 (m - h 0) (n - h 0) hsub hEmbed'
+  -- comb agrees with f strictly before the replacement position.
+  have hprefix : ∀ m < h 0, f m = comb m := by
+    intro m hm; simp [comb, hm]
+  -- At the replacement position we inserted g(0).
+  have hcombAt : comb (h 0) = g 0 := by simp [comb]
+  -- g(0) is strictly smaller than the parent which it supports.
+  have hsmall : Kruskal2Minus_cmplx (comb (h 0)) < Kruskal2Minus_cmplx (f (h 0)) := by
+    rw [hcombAt, hgNode 0]
+    exact Kruskal2Minus_cmplx_lt_node_of_occurs (hgOccurs 0)
+  -- This contradicts minimality of f at position h(0).
+  have hnotBad : ¬ Kruskal2MinusBadSeq comb := (hmin (h 0)) comb hprefix hsmall
+  exact hnotBad hcombBad
+
+-- Kruskal Trees with Base Labels in a Set
+-- Every base label occurring in t belongs to S
+def KruskalBasesOn {X : Type} (S : Set X) (t : KruskalTree X) : Prop :=
+  ∀ x, KruskalBaseOccurs x t → x ∈ S
+-- Every base label occurring in a forest belongs to S
+def KruskalForestBasesOn {X : Type} (S : Set X) (ts : List (KruskalTree X)) : Prop :=
+  ∀ t, t ∈ ts → KruskalBasesOn S t
+
+-- Trees over the Subtype S
+mutual
+-- Forget the proof that every base label belongs to S
+@[simp] def KruskalSubtypeErase {X : Type} {S : Set X} :
+        KruskalTree S → KruskalTree X
+  | .base x => .base x.1
+  | .node ts => .node (KruskalSubtypeEraseList ts)
+termination_by
+  t => 2 * KruskalTree.transComplexity t
+decreasing_by
+  all_goals
+    subst_vars
+    try have htPos : 0 < KruskalTree.transComplexity t :=
+      KruskalTree.transComplexity_pos t
+    simp [KruskalTree.transComplexity, KruskalTree.transComplexityList] at * <;> omega
+-- Forget subtype proofs componentwise in a forest
+@[simp] def KruskalSubtypeEraseList {X : Type} {S : Set X} :
+        List (KruskalTree S) → List (KruskalTree X)
+  | [] => []
+  | t :: ts => KruskalSubtypeErase t :: KruskalSubtypeEraseList ts
+termination_by
+  ts => 2 * KruskalTree.transComplexityList ts + 1
+decreasing_by
+  all_goals
+    subst_vars
+    try have htPos : 0 < KruskalTree.transComplexity t :=
+      KruskalTree.transComplexity_pos t
+    simp [KruskalTree.transComplexity, KruskalTree.transComplexityList] at * <;> omega
+
+end
+-- Erasing subtype proofs commutes with concatenation of forests
+@[simp]
+theorem KruskalSubtypeEraseList_append {X : Type} {S : Set X}
+        (ss ts : List (KruskalTree S)) :
+        KruskalSubtypeEraseList (ss ++ ts) =
+          KruskalSubtypeEraseList ss ++ KruskalSubtypeEraseList ts := by
+  induction ss with
+  | nil =>
+      simp [KruskalSubtypeEraseList]
+  | cons s ss ih =>
+      simp [KruskalSubtypeEraseList, ih]
+
+-- Erasing Subtype Proofs Preserves Embedding
+mutual
+-- Forgetting subtype proofs preserves Kruskal tree embedding
+theorem KruskalSubtypeErase_embeds {X : Type} {S : Set X} {r : X → X → Prop}
+        {s t : KruskalTree S}
+        (h : KruskalTreeEmbeds (fun x y : S => r x.1 y.1) s t) :
+        KruskalTreeEmbeds r (KruskalSubtypeErase s) (KruskalSubtypeErase t) := by
+  cases h with
+  | base hxy =>
+      simpa using KruskalTreeEmbeds.base hxy
+  | @root ss ts hforest =>
+      subst_vars
+      simpa using KruskalTreeEmbeds.root
+        (KruskalSubtypeEraseList_embeds hforest)
+  | @descend s t before after hsub =>
+      subst_vars
+      simpa using KruskalTreeEmbeds.descend
+        (before := KruskalSubtypeEraseList before)
+        (after := KruskalSubtypeEraseList after)
+        (KruskalSubtypeErase_embeds hsub)
+termination_by
+  2 * (KruskalTree.transComplexity s + KruskalTree.transComplexity t)
+decreasing_by
+  all_goals
+    subst_vars
+    simp [KruskalTree.transComplexity, KruskalTree.transComplexityList,
+      KruskalTree.transComplexityList_append]
+    omega
+-- Forgetting subtype proofs preserves Kruskal forest embedding
+theorem KruskalSubtypeEraseList_embeds {X : Type} {S : Set X} {r : X → X → Prop}
+        {ss ts : List (KruskalTree S)}
+        (h : KruskalForestEmbeds (fun x y : S => r x.1 y.1) ss ts) :
+        KruskalForestEmbeds r
+          (KruskalSubtypeEraseList ss) (KruskalSubtypeEraseList ts) := by
+  cases h with
+  | nil =>
+      rw [KruskalSubtypeEraseList]
+      exact KruskalForestEmbeds.nil
+  | @cons s t ss before after hst hrest =>
+      have hrest' := KruskalSubtypeEraseList_embeds hrest
+      rw [KruskalSubtypeEraseList_append] at hrest'
+      simpa using KruskalForestEmbeds.cons
+        (before := KruskalSubtypeEraseList before)
+        (after := KruskalSubtypeEraseList after)
+        (KruskalSubtypeErase_embeds hst)
+        hrest'
+termination_by
+  2 * (KruskalTree.transComplexityList ss +
+    KruskalTree.transComplexityList ts) + 1
+decreasing_by
+  all_goals
+    subst_vars
+    try have hsPos : 0 < KruskalTree.transComplexity s :=
+      KruskalTree.transComplexity_pos s
+    try have htPos : 0 < KruskalTree.transComplexity t :=
+      KruskalTree.transComplexity_pos t
+    simp [KruskalTree.transComplexity, KruskalTree.transComplexityList,
+      KruskalTree.transComplexityList_append] at *
+    omega
+end
+
+-- Lift Trees Whose Bases Lie in S to Trees over the Subtype S
+mutual
+-- A tree whose bases all lie in S can be viewed as a Kruskal tree over the subtype S
+theorem exists_KruskalSubtypeLift {X : Type} {S : Set X} {t : KruskalTree X}
+        (ht : KruskalBasesOn S t) :
+        ∃ u : KruskalTree S, KruskalSubtypeErase u = t := by
+  cases t with
+  | base x =>
+      have hx : x ∈ S := ht x KruskalBaseOccurs.base
+      refine ⟨.base ⟨x, hx⟩, ?_⟩
+      simp
+  | node ts =>
+      have hts : KruskalForestBasesOn S ts := by
+        intro t htMem
+        intro x hx
+        exact ht x (KruskalBaseOccurs.node htMem hx)
+      obtain ⟨us, hus⟩ := exists_KruskalSubtypeLiftList hts
+      refine ⟨.node us, ?_⟩
+      simpa using congrArg KruskalTree.node hus
+termination_by
+  2 * KruskalTree.transComplexity t
+decreasing_by
+  all_goals
+    subst_vars
+    simp [KruskalTree.transComplexity, KruskalTree.transComplexityList]
+    omega
+-- A forest whose bases all lie in S can be viewed as a forest over the subtype S
+theorem exists_KruskalSubtypeLiftList {X : Type} {S : Set X}
+        {ts : List (KruskalTree X)}
+        (hts : KruskalForestBasesOn S ts) :
+        ∃ us : List (KruskalTree S), KruskalSubtypeEraseList us = ts := by
+  cases ts with
+  | nil =>
+      refine ⟨[], ?_⟩
+      simp
+  | cons t ts =>
+      have ht : KruskalBasesOn S t :=
+        hts t List.mem_cons_self
+      have htail : KruskalForestBasesOn S ts := by
+        intro u hu
+        exact hts u (List.mem_cons_of_mem t hu)
+      obtain ⟨u, hu⟩ := exists_KruskalSubtypeLift ht
+      obtain ⟨us, hus⟩ := exists_KruskalSubtypeLiftList htail
+      refine ⟨u :: us, ?_⟩
+      simp [KruskalSubtypeEraseList, hu, hus]
+termination_by
+  2 * KruskalTree.transComplexityList ts + 1
+decreasing_by
+  all_goals
+    subst_vars
+    have htPos : 0 < KruskalTree.transComplexity t :=
+      KruskalTree.transComplexity_pos t
+    simp [KruskalTree.transComplexity, KruskalTree.transComplexityList] at * <;> omega
+end
+
+-- Restricted Kruskal Theorem
+-- If S is WQO, then Kruskal trees whose base labels all lie in S are WQO
+theorem KruskalTreeEmbeds_partiallyWellOrderedOn_of_bases
+        {X : Type} {r : X → X → Prop} [IsPreorder X r] {S : Set X}
+        (hS : S.PartiallyWellOrderedOn r) :
+        {t : KruskalTree X | KruskalBasesOn S t}.PartiallyWellOrderedOn
+          (KruskalTreeEmbeds r) := by
+  classical
+  let rS : S → S → Prop := fun x y => r x.1 y.1
+  letI : IsPreorder S rS :=
+    { refl := by
+        intro x
+        exact refl_of r x.1
+      trans := by
+        intro x y z hxy hyz
+        exact trans_of r hxy hyz }
+  have hSubtype : WellQuasiOrdered rS := by
+    rw [← Set.partiallyWellOrderedOn_univ_iff]
+    rw [Set.partiallyWellOrderedOn_iff_exists_lt]
+    rw [Set.partiallyWellOrderedOn_iff_exists_lt] at hS
+    intro g _
+    obtain ⟨i, j, hij, hrel⟩ :=
+      hS (fun n => (g n).1) (fun n => (g n).2)
+    exact ⟨i, j, hij, hrel⟩
+  have hKruskal : WellQuasiOrdered (KruskalTreeEmbeds rS) :=
+    KruskalTreeEmbeds_wqo hSubtype
+  rw [Set.partiallyWellOrderedOn_iff_exists_lt]
+  intro f hf
+  have hLift : ∀ n, ∃ t : KruskalTree S, KruskalSubtypeErase t = f n := by
+    intro n
+    exact exists_KruskalSubtypeLift (hf n)
+  choose g hg using hLift
+  obtain ⟨i, j, hij, hEmbed⟩ := hKruskal g
+  have hErase :
+      KruskalTreeEmbeds r
+        (KruskalSubtypeErase (g i))
+        (KruskalSubtypeErase (g j)) :=
+    KruskalSubtypeErase_embeds hEmbed
+  refine ⟨i, j, hij, ?_⟩
+  simpa [hg i, hg j] using hErase
+
+-- Children of a Minimal Bad T₂⁻ Sequence are WQO
+-- The immediate T₂ children of a minimal bad T₂⁻ sequence form a WQO set
+theorem Kruskal2ChildrenOfMinBad_partiallyWellOrderedOn
+        {f : ℕ → Kruskal2Minus}
+        (hbad : Kruskal2MinusBadSeq f)
+        (hmin : ∀ n, Kruskal2MinusMinBadSeq n f) :
+        (Kruskal2ChildrenOfSeq f).PartiallyWellOrderedOn Kruskal2Embeds := by
+  have hSupport :
+      (Kruskal2SupportOfSeq f).PartiallyWellOrderedOn
+        Kruskal2MinusEmbeds :=
+    Kruskal2SupportOfMinBad_partiallyWellOrderedOn hbad hmin
+  have hSupportedTrees :
+      {t : Kruskal2 |
+        KruskalBasesOn (Kruskal2SupportOfSeq f) t}.PartiallyWellOrderedOn
+          Kruskal2Embeds :=
+    KruskalTreeEmbeds_partiallyWellOrderedOn_of_bases hSupport
+  rw [Set.partiallyWellOrderedOn_iff_exists_lt] at hSupportedTrees ⊢
+  intro R hR
+  apply hSupportedTrees R
+  intro n
+  obtain ⟨p, ts, hpNode, hpMem⟩ := hR n
+  intro x hx
+  exact ⟨p, ts, hpNode, ⟨R n, hpMem, hx⟩⟩
+
+-- WQO of T₂⁻
+-- The label-0 objects of the two-level Kruskal construction are WQO
+theorem Kruskal2MinusEmbeds_wqo :
+        WellQuasiOrdered Kruskal2MinusEmbeds := by
+  classical
+  rw [← Set.partiallyWellOrderedOn_univ_iff]
+  rw [Set.PartiallyWellOrderedOn.iff_not_exists_isMinBadSeq
+    Kruskal2Minus_cmplx]
+  rintro ⟨f, hbad, hmin⟩
+  have hChildren :
+      (Kruskal2ChildrenOfSeq f).PartiallyWellOrderedOn Kruskal2Embeds :=
+    Kruskal2ChildrenOfMinBad_partiallyWellOrderedOn hbad hmin
+  have hNode : ∀ n, ∃ ts : List Kruskal2, f n = .node ts := by
+    intro n
+    cases hfn : f n with
+    | node ts =>
+        exact ⟨ts, rfl⟩
+  choose forests hForests using hNode
+  have hForestOn :
+      ∀ n, KruskalTree.KruskalForestOn
+        (Kruskal2ChildrenOfSeq f) (forests n) := by
+    intro n t ht
+    exact ⟨n, forests n, hForests n, ht⟩
+  have hForestWQO :
+      {ts : List Kruskal2 |
+        KruskalTree.KruskalForestOn
+          (Kruskal2ChildrenOfSeq f) ts}.PartiallyWellOrderedOn
+            Kruskal2ForestEmbeds :=
+    KruskalTree.KruskalForestEmbeds_partiallyWellOrderedOn hChildren
+  rw [Set.partiallyWellOrderedOn_iff_exists_lt] at hForestWQO
+  obtain ⟨i, j, hij, hForestEmbed⟩ :=
+    hForestWQO forests hForestOn
+  have hRootEmbed :
+      Kruskal2MinusEmbeds (f i) (f j) := by
+    rw [hForests i, hForests j]
+    exact Kruskal2MinusEmbeds.root hForestEmbed
+  exact hbad.2 i j hij hRootEmbed
+
+-- WQO of the Full Two-Level Kruskal Construction
+-- The full two-level Kruskal construction is WQO
+theorem Kruskal2Embeds_wqo :
+        WellQuasiOrdered Kruskal2Embeds := by
+  exact KruskalTreeEmbeds_wqo Kruskal2MinusEmbeds_wqo
+
+
+end GapTree
+
+
+
+
+
+
+
 
 
 
